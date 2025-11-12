@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Heart, ShoppingCart, User, Loader2, XCircle, ChevronDown } from 'lucide-react';
+import { Search, Heart, ShoppingCart, User, Loader2, XCircle, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import axiosInstance from '../axiosintreceptor.js';
 import { useDebounce } from '../hooks/useDebounce.js';
 import { useCart } from '../components/CartContext.jsx';
+import { jwtDecode } from 'jwt-decode';
 
-const categories = [ // Added 'All' for resetting the filter
-  'All', 'Electronics', 'Home & Garden', 'Clothing & Accessories', 'Books',
-  'Sports & Outdoors', 'Toys & Games', 'Antiques', 'Other'
-];
+// Categories will be set dynamically from products
 
 // --- Sub-Components (SearchBar, CategoryNav, ProductCard, ProductSection) ---
 
@@ -32,7 +29,7 @@ const SearchBar = ({ searchTerm, onSearchChange }) => (
 );
 
 // CategoryNav Component
-const CategoryNav = ({ selectedCategory, onCategoryChange }) => (
+const CategoryNav = ({ selectedCategories, onCategoryChange, categories }) => (
   <section className="my-8">
     <h2 className="text-xl font-semibold mb-4 text-gray-800">Categories</h2>
     <div className="flex flex-wrap gap-2">
@@ -40,12 +37,10 @@ const CategoryNav = ({ selectedCategory, onCategoryChange }) => (
         <button
           key={category}
           onClick={() => onCategoryChange(category)}
-          className={`
-            px-4 py-2 text-sm font-medium rounded-full transition duration-150 ease-in-out
-            ${selectedCategory === category
-              ? 'bg-green-600 text-white shadow-md'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
-          `}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition ${selectedCategories.includes(category)
+              ? 'bg-green-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
         >
           {category}
         </button>
@@ -147,7 +142,7 @@ const MarketplacePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategories, setSelectedCategories] = useState(['All']);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300); // 300ms delay
@@ -155,14 +150,43 @@ const MarketplacePage = () => {
   const debouncedMaxPrice = useDebounce(maxPrice, 500);
   const [sortBy, setSortBy] = useState('recentlyAdded');
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const [categories, setCategories] = useState(['All']);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [hasPrevPage, setHasPrevPage] = useState(false);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+
+  const isLoggedIn = !!localStorage.getItem('token');
+  const userRole = isLoggedIn ? jwtDecode(localStorage.getItem('token')).role : null;
+  const isBuyer = userRole === 'buyer';
 
   const handleClearFilters = () => {
     setSearchTerm('');
-    setSelectedCategory('All');
+    setSelectedCategories(['All']);
     setMinPrice('');
     setMaxPrice('');
     setSortBy('recentlyAdded');
+    setCurrentPage(1);
     toast('Filters cleared!', { icon: '🧹' });
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+
+  const handleCategoryChange = (category) => {
+    setSelectedCategories((prev) => {
+      if (category === 'All') {
+        return ['All'];
+      }
+      const newSelected = prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev.filter((c) => c !== 'All'), category];
+      return newSelected.length === 0 ? ['All'] : newSelected;
+    });
+    setCurrentPage(1);
   };
 
   useEffect(() => {
@@ -170,9 +194,35 @@ const MarketplacePage = () => {
       try {
         setLoading(true);
         setError(null); // Reset error on new fetch
-        const response = await axiosInstance.get('/products');
+        const params = new URLSearchParams();
+        params.append('page', currentPage);
+        params.append('limit', 20); // Match backend default
+
+        const response = await axiosInstance.get(`/products?${params.toString()}`);
         if (response.data.success) {
           setProducts(response.data.products);
+          setTotalPages(response.data.pagination.totalPages);
+          setTotalProducts(response.data.pagination.totalProducts);
+          setHasNextPage(response.data.pagination.hasNextPage);
+          setHasPrevPage(response.data.pagination.hasPrevPage);
+          // Extract unique categories from products (assuming all products are fetched initially)
+          if (currentPage === 1) {
+            const uniqueCategories = ['All', ...new Set(response.data.products.map(product => product.category))];
+            setCategories(uniqueCategories);
+            // Fetch recommended products dynamically if logged in as buyer
+            if (isLoggedIn && isBuyer) {
+              try {
+                const recResponse = await axiosInstance.get('/products/recommendations?limit=5');
+                if (recResponse.data.success) {
+                  setRecommendedProducts(recResponse.data.products);
+                }
+              } catch (recError) {
+                console.error('Error fetching recommendations:', recError);
+                // Fallback to first 5 products if recommendations fail
+                setRecommendedProducts(response.data.products.slice(0, 5));
+              }
+            }
+          }
         } else {
           throw new Error('Failed to fetch products');
         }
@@ -186,14 +236,14 @@ const MarketplacePage = () => {
     };
 
     fetchProducts();
-  }, []);
+  }, [currentPage, isLoggedIn]);
 
   useEffect(() => {
     let result = products;
 
     // Filter by category
-    if (selectedCategory !== 'All') {
-      result = result.filter(product => product.category === selectedCategory);
+    if (!selectedCategories.includes('All')) {
+      result = result.filter(product => selectedCategories.includes(product.category));
     }
 
     // Filter by search term (name and description)
@@ -217,7 +267,7 @@ const MarketplacePage = () => {
     }
 
     setFilteredProducts(result);
-  }, [products, debouncedSearchTerm, selectedCategory, debouncedMinPrice, debouncedMaxPrice]);
+  }, [products, debouncedSearchTerm, selectedCategories, debouncedMinPrice, debouncedMaxPrice]);
 
   // Apply sorting to the filtered products
   const sortedProducts = [...filteredProducts].sort((a, b) => {
@@ -234,8 +284,6 @@ const MarketplacePage = () => {
 
   // The main list of products to display, now sorted
   const displayProducts = sortedProducts;
-  // Recommended products can still be derived from the filtered (but not yet sorted) list
-  const recommendedProducts = filteredProducts.slice(0, 5);
 
   if (loading) {
     return (
@@ -291,7 +339,7 @@ const MarketplacePage = () => {
           </div>
         </div>
         <div className="flex justify-between items-center">
-          <CategoryNav selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
+          <CategoryNav selectedCategories={selectedCategories} onCategoryChange={handleCategoryChange} categories={categories} />
           <div className="mt-8">
             <SortOptions sortBy={sortBy} onSortChange={setSortBy} />
           </div>
@@ -300,7 +348,7 @@ const MarketplacePage = () => {
         {loading && products.length === 0 ? null : filteredProducts.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-600 text-lg">
-              {debouncedSearchTerm || selectedCategory !== 'All' || minPrice || maxPrice
+              {debouncedSearchTerm || !selectedCategories.includes('All') || minPrice || maxPrice
                 ? 'No products match your criteria.'
                 : 'No products available at the moment.'}
             </p>
@@ -308,19 +356,57 @@ const MarketplacePage = () => {
           </div>
         ) : (
           <>
-            <ProductSection
-              title="Recommended for You"
-              products={recommendedProducts}
-              gridCols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-              maxItems={5}
-            />
+            {isBuyer && recommendedProducts.length > 0 && (
+              <ProductSection
+                title="Recommended for You"
+                products={recommendedProducts}
+                gridCols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+                maxItems={5}
+              />
+            )}
 
             <ProductSection
-              title="Recently Added"
+              title="Availabe Products"
               products={displayProducts}
               gridCols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
               showTwoRows={true}
             />
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center mt-8 space-x-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={!hasPrevPage}
+                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`px-3 py-2 rounded-lg ${page === currentPage
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={!hasNextPage}
+                  className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </>
         )}
       </main>

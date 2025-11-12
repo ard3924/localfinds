@@ -41,10 +41,20 @@ const productSchema = new mongoose.Schema({
         type: String,
         required: [true, 'Please enter product category'],
     },
+    tagline: {
+        type: String,
+        trim: true,
+        maxlength: [100, 'Tagline cannot exceed 100 characters'],
+        default: '',
+    },
     seller: {
         type: mongoose.Schema.ObjectId,
         ref: 'User',
         required: true,
+    },
+    views: {
+        type: Number,
+        default: 0,
     },
 }, { timestamps: true });
 

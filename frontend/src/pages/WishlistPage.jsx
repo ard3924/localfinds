@@ -25,6 +25,7 @@ const WishlistPage = () => {
                 return;
             }
         } catch (err) {
+            console.error('Error checking user role:', err);
             toast.error('Failed to verify user role. Please try again.');
             return;
         }

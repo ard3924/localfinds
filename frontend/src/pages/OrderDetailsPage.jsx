@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Truck, MapPin, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, X, Download, FileText } from 'lucide-react';
+import { Truck, MapPin, Clock, CheckCircle, XCircle, AlertCircle, ArrowLeft, X, Download, FileText, Package, Calendar, DollarSign } from 'lucide-react';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import AccountSidebar from '../components/AccountSidebar.jsx';
@@ -18,13 +18,20 @@ const OrderDetailsPage = () => {
     const [cancelling, setCancelling] = useState(false);
     const [downloadingInvoice, setDownloadingInvoice] = useState(false);
     const [invoiceExists, setInvoiceExists] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalOrders, setTotalOrders] = useState(0);
+    const ordersPerPage = 6;
 
-    const fetchOrderData = async () => {
+    const fetchOrderData = async (page = 1) => {
         setLoading(true);
         setError(null);
 
         // First, get user role to determine the correct endpoint
         try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
             const userResponse = await axiosInstance.get('/user/account');
             setUserRole(userResponse.data.role);
         } catch (err) {
@@ -39,10 +46,13 @@ const OrderDetailsPage = () => {
             // If no ID, fetch all orders based on role
             try {
                 const endpoint = userRole === 'seller' ? '/orders/seller' : '/orders/myorders';
-                const response = await axiosInstance.get(endpoint);
+                const response = await axiosInstance.get(`${endpoint}?page=${page}&limit=${ordersPerPage}`);
                 if (response.data.success) {
                     setOrder(null); // Reset single order
                     setOrders(response.data.orders);
+                    setTotalPages(response.data.pagination.totalPages);
+                    setCurrentPage(response.data.pagination.currentPage);
+                    setTotalOrders(response.data.totalOrders);
                 } else {
                     throw new Error('Failed to fetch orders');
                 }
@@ -71,11 +81,15 @@ const OrderDetailsPage = () => {
 
     useEffect(() => {
         fetchOrderData();
-    }, [id]);
+    }, [id, userRole]);
 
+    const handlePageChange = (newPage) => {
+        if (newPage < 1 || newPage > totalPages) return;
+        fetchOrderData(newPage);
+    };
     // Check if invoice exists for the order
     useEffect(() => {
-        if (order && order.status !== 'cancelled') {
+        if (order && order.status !== 'cancelled' && id) {
             let pollingInterval;
             let timeoutId;
 
@@ -225,8 +239,8 @@ const OrderDetailsPage = () => {
         const sortedHistory = [...trackingHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         return (
-            <div className="space-y-4">
-                <h4 className="text-lg font-semibold mb-4 flex items-center">
+            <div className="bg-gray-50 p-6 rounded-lg mt-6">
+                <h4 className="text-xl font-semibold mb-4 flex items-center text-gray-800">
                     <Truck className="w-5 h-5 mr-2" />
                     Order Tracking
                 </h4>
@@ -234,17 +248,19 @@ const OrderDetailsPage = () => {
                     {sortedHistory.map((entry, index) => (
                         <div key={index} className="flex items-start space-x-3">
                             <div className="flex-shrink-0 mt-1">
-                                {getStatusIcon(entry.status)}
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${getStatusColor(entry.status)}`}>
+                                    {getStatusIcon(entry.status)}
+                                </div>
                             </div>
                             <div className="flex-grow">
                                 <div className="flex items-center justify-between">
-                                    <span className="font-medium capitalize">{entry.status}</span>
+                                    <span className="font-semibold capitalize text-gray-800">{entry.status}</span>
                                     <span className="text-sm text-gray-500">
                                         {new Date(entry.timestamp).toLocaleString()}
                                     </span>
                                 </div>
                                 {entry.note && (
-                                    <p className="text-sm text-gray-600 mt-1">{entry.note}</p>
+                                    <p className="text-sm text-gray-600 mt-1 italic">"{entry.note}"</p>
                                 )}
                             </div>
                         </div>
@@ -313,23 +329,22 @@ const OrderDetailsPage = () => {
                                     Back to Orders
                                 </button>
                             </div>
-                            <h2 className="text-3xl font-bold text-gray-900 mb-6">Order Details</h2>
+                            <h2 className="text-3xl font-bold text-gray-900 mb-2">Order Details</h2>
+                            <p className="text-gray-500 mb-6">Review the status and details of your order.</p>
                             <div className="space-y-6">
-                                <div className="border-b pb-4">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-xl font-semibold">Order #{order._id.slice(-8)}</h3>
-                                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
-                                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                                        </span>
+                                <div className="bg-gray-50 p-4 rounded-lg flex justify-between items-center">
+                                    <h3 className="text-xl font-semibold text-gray-800">Order #{order._id.slice(-8)}</h3>
+                                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(order.status)}`}>
+                                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                                     </div>
                                     <p className="text-gray-600">Ordered on {new Date(order.createdAt).toLocaleDateString()}</p>
                                 </div>
 
                                 <div>
-                                    <h4 className="text-lg font-semibold mb-3">Items</h4>
+                                    <h4 className="text-xl font-semibold mb-3 text-gray-800">Items Ordered ({order.items.length})</h4>
                                     <div className="space-y-4">
                                         {order.items.map((item, index) => (
-                                            <div key={index} className="flex items-center justify-between border-b pb-4">
+                                            <div key={index} className="flex items-center justify-between border-b pb-3">
                                                 <div className="flex items-center">
                                                     <img
                                                         src={item.product.images?.[0]?.url || 'https://picsum.photos/80'}
@@ -337,11 +352,11 @@ const OrderDetailsPage = () => {
                                                         className="w-16 h-16 object-cover rounded-lg mr-4"
                                                     />
                                                     <div>
-                                                        <h5 className="font-semibold">{item.product.name}</h5>
+                                                        <h5 className="font-semibold text-gray-800">{item.product.name}</h5>
                                                         <p className="text-gray-600">Quantity: {item.quantity}</p>
                                                     </div>
                                                 </div>
-                                                <p className="font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
+                                                <p className="font-semibold text-gray-800">${(item.price * item.quantity).toFixed(2)}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -351,7 +366,7 @@ const OrderDetailsPage = () => {
                                 <div className="border-t pt-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                         <div>
-                                            <h4 className="text-lg font-semibold mb-3 flex items-center">
+                                            <h4 className="text-xl font-semibold mb-3 flex items-center text-gray-800">
                                                 <MapPin className="w-5 h-5 mr-2" />
                                                 Shipping Information
                                             </h4>
@@ -375,7 +390,7 @@ const OrderDetailsPage = () => {
 
                                         {order.trackingNumber && (
                                             <div>
-                                                <h4 className="text-lg font-semibold mb-3 flex items-center">
+                                                <h4 className="text-xl font-semibold mb-3 flex items-center text-gray-800">
                                                     <Truck className="w-5 h-5 mr-2" />
                                                     Tracking Information
                                                 </h4>
@@ -395,13 +410,13 @@ const OrderDetailsPage = () => {
                                         )}
                                     </div>
 
-                                    <div className="flex justify-between items-center mb-4">
-                                        <span className="text-lg">Total Amount:</span>
+                                    <div className="flex justify-end items-center mb-4">
+                                        <span className="text-lg text-gray-700 mr-4">Total Amount:</span>
                                         <span className="text-2xl font-bold text-green-600">${order.totalAmount.toFixed(2)}</span>
                                     </div>
 
                                     {order.orderNotes && (
-                                        <div className="mb-6">
+                                        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
                                             <span className="font-medium">Order Notes:</span>
                                             <p className="text-gray-600 mt-1">{order.orderNotes}</p>
                                         </div>
@@ -414,15 +429,19 @@ const OrderDetailsPage = () => {
                                             {invoiceExists !== null && (
                                                 <button
                                                     onClick={handleDownloadInvoice}
-                                                    disabled={downloadingInvoice || invoiceExists === false}
-                                                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                    disabled={downloadingInvoice || !invoiceExists}
+                                                    className="relative inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors overflow-hidden"
                                                 >
+                                                    {downloadingInvoice && (
+                                                        <div className="absolute top-0 left-0 h-full bg-blue-700 animate-pulse" style={{ width: '100%' }}></div>
+                                                    )}
+                                                    <span className="relative z-10 flex items-center" />
                                                     {downloadingInvoice ? (
                                                         <>
                                                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                                                             Downloading...
                                                         </>
-                                                    ) : invoiceExists === false ? (
+                                                    ) : !invoiceExists ? (
                                                         <>
                                                             <FileText className="w-4 h-4 mr-2" />
                                                             Invoice Not Ready
@@ -468,33 +487,63 @@ const OrderDetailsPage = () => {
                         </>
                     ) : (
                         <>
-                            <h2 className="text-3xl font-bold text-gray-900 mb-6">My Orders</h2>
+                            <h2 className="text-3xl font-bold text-gray-900 mb-2">My Orders</h2>
+                            <p className="text-gray-500 mb-6">Track and manage all your past and current orders.</p>
                             {orders.length === 0 ? (
-                                <p className="text-gray-600">You haven't placed any orders yet.</p>
+                                <div className="text-center py-12">
+                                    <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                                    <p className="text-xl text-gray-600 mb-4">You haven't placed any orders yet.</p>
+                                    <button onClick={() => navigate('/marketplace')} className="bg-green-500 text-white py-2 px-6 rounded-lg font-semibold hover:bg-green-600 transition-colors">
+                                        Start Shopping
+                                    </button>
+                                </div>
                             ) : (
-                                <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     {orders.map((orderItem) => (
-                                        <div key={orderItem._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <h3 className="text-lg font-semibold">Order #{orderItem._id.slice(-8)}</h3>
-                                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(orderItem.status)}`}>
-                                                    {orderItem.status.charAt(0).toUpperCase() + orderItem.status.slice(1)}
-                                                </span>
+                                        <div key={orderItem._id} className="border border-gray-200 rounded-lg p-5 hover:shadow-lg transition-shadow bg-white">
+                                            <div className="flex justify-between items-start mb-3">
+                                                <div>
+                                                    <h3 className="text-lg font-bold text-gray-800">Order #{orderItem._id.slice(-8)}</h3>
+                                                    <div className="flex items-center text-sm text-gray-500 mt-1">
+                                                        <Calendar className="w-4 h-4 mr-2" />
+                                                        <span>{new Date(orderItem.createdAt).toLocaleDateString()}</span>
+                                                    </div>
+                                                </div>
+                                                <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(orderItem.status)}`}>
+                                                    {getStatusIcon(orderItem.status)}
+                                                    <span>{orderItem.status.charAt(0).toUpperCase() + orderItem.status.slice(1)}</span>
+                                                </div>
                                             </div>
-                                            <p className="text-gray-600 mb-2">Ordered on {new Date(orderItem.createdAt).toLocaleDateString()}</p>
-                                            <p className="font-semibold text-green-600">${orderItem.totalAmount.toFixed(2)}</p>
-                                            <p className="text-sm text-gray-600">Est. Delivery: {orderItem.estimatedDelivery ? new Date(orderItem.estimatedDelivery).toLocaleDateString() : 'Not set'}</p>
-                                            <div className="flex justify-between items-center mt-2">
+                                            {orderItem.items && orderItem.items.length > 0 && orderItem.items[0].product && (
+                                                <div className="flex items-center mb-3">
+                                                    <img
+                                                        src={orderItem.items[0].product.images?.[0]?.url || 'https://picsum.photos/80'}
+                                                        alt={orderItem.items[0].product.name}
+                                                        className="w-12 h-12 object-cover rounded-lg mr-3"
+                                                    />
+                                                    <div>
+                                                        <p className="font-medium text-gray-800">{orderItem.items[0].product.name}</p>
+                                                        {orderItem.items.length > 1 && (
+                                                            <p className="text-sm text-gray-500">+{orderItem.items.length - 1} more item(s)</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="flex items-center text-lg font-bold text-green-600 my-4">
+                                                <DollarSign className="w-5 h-5 mr-2" />
+                                                <span>{orderItem.totalAmount.toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center mt-4 pt-4 border-t">
                                                 <button
                                                     onClick={() => navigate(`/orders/${orderItem._id}`)}
-                                                    className="text-green-600 hover:text-green-700 font-medium"
+                                                    className="text-green-600 hover:underline font-medium"
                                                 >
                                                     View Details →
                                                 </button>
                                                 {orderItem.status === 'pending' && (
                                                     <button
                                                         onClick={() => handleCancelOrderFromList(orderItem._id)}
-                                                        className="inline-flex items-center px-3 py-1 bg-red-600 text-white text-sm rounded-lg font-medium hover:bg-red-700 transition-colors"
+                                                        className="inline-flex items-center px-3 py-1 bg-red-100 text-red-700 text-sm rounded-lg font-medium hover:bg-red-200 transition-colors"
                                                     >
                                                         <X className="w-4 h-4 mr-1" />
                                                         Cancel
@@ -505,12 +554,38 @@ const OrderDetailsPage = () => {
                                     ))}
                                 </div>
                             )}
+                            {orders.length > 0 && totalPages > 1 && (
+                                <div className="mt-8 flex justify-center items-center space-x-4">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Previous
+                                    </button>
+                                    <span className="text-gray-600">
+                                        Page {currentPage} of {totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            )}
+                            {orders.length > 0 && (
+                                <div className="mt-4 text-center text-sm text-gray-500">
+                                    Showing {orders.length} of {totalOrders} orders
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
-            </main>
+            </main >
             <Footer />
-        </div>
+        </div >
     );
 };
 

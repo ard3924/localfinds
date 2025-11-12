@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import { EyeIcon, EyeOffIcon, User, Store } from 'lucide-react';
+import toast from 'react-hot-toast';
 import axiosInstance from '../axiosintreceptor.js';
 
 const SignUpPage = () => {
@@ -26,7 +27,6 @@ const SignUpPage = () => {
   });
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     const typeFromQuery = new URLSearchParams(location.search).get('type') || 'buyer';
@@ -40,12 +40,16 @@ const SignUpPage = () => {
     });
   };
 
+  const handleUserTypeChange = (type) => {
+    setUserType(type);
+    navigate(`/signup?type=${type}`, { replace: true });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+      toast.error("Passwords do not match");
       return;
     }
 
@@ -72,8 +76,9 @@ const SignUpPage = () => {
     try {
       await axiosInstance.post('/user/register', payload);
       navigate('/signin');
+      toast.success('Account created successfully! Please sign in.');
     } catch (err) {
-      setError(err.response?.data?.message || err.message);
+      toast.error(err.response?.data?.message || err.message);
     }
   };
 
@@ -105,11 +110,6 @@ const SignUpPage = () => {
         {/* Right side - Form */}
         <div className="flex-1 flex items-center justify-center p-8 lg:p-12 order-1 lg:order-2">
           <div className="w-full max-w-md">
-            {error && (
-              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                <span className="block sm:inline">{error}</span>
-              </div>
-            )}
             <h2 className="text-2xl font-bold text-center text-gray-900 mb-2">Create your account</h2>
             <p className="text-center text-green-600 text-sm mb-6">Join us today</p>
 
@@ -117,14 +117,14 @@ const SignUpPage = () => {
             <div className="flex justify-center bg-gray-200 rounded-lg p-1 mb-6">
               <button
                 type="button"
-                onClick={() => setUserType('buyer')}
+                onClick={() => handleUserTypeChange('buyer')}
                 className={`w-1/2 py-2 rounded-md text-sm font-semibold transition-colors duration-200 ${userType === 'buyer' ? 'bg-white text-green-600 shadow' : 'text-gray-600'}`}
               >
                 I'm a Buyer
               </button>
               <button
                 type="button"
-                onClick={() => setUserType('seller')}
+                onClick={() => handleUserTypeChange('seller')}
                 className={`w-1/2 py-2 rounded-md text-sm font-semibold transition-colors duration-200 ${userType === 'seller' ? 'bg-white text-green-600 shadow' : 'text-gray-600'}`}
               >
                 I'm a Seller
@@ -229,6 +229,7 @@ const SignUpPage = () => {
                 <button
                   type="button"
                   onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                  aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
                 >
                   {isPasswordVisible ? <EyeOffIcon /> : <EyeIcon />}
@@ -247,6 +248,7 @@ const SignUpPage = () => {
                 <button
                   type="button"
                   onClick={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+                  aria-label={isConfirmPasswordVisible ? 'Hide confirm password' : 'Show confirm password'}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm leading-5"
                 >
                   {isConfirmPasswordVisible ? <EyeOffIcon /> : <EyeIcon />}
@@ -267,8 +269,6 @@ const SignUpPage = () => {
           </div>
         </div>
       </div>
-
-      {/* Footer */}
       <Footer />
     </div>
   );

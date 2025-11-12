@@ -105,11 +105,88 @@ router.get('/myproducts', protect, sellerOnly, async (req, res) => {
  */
 router.get('/seller/:sellerId', async (req, res) => {
     try {
-        const products = await Product.find({ seller: req.params.sellerId }).populate('seller', 'name email');
+        const products = await Product.find({ seller: req.params.sellerId }).populate('seller', 'name email businessName businessCategory bio');
         res.status(200).json({ success: true, products });
     } catch (error) {
         console.error('Error fetching seller products:', error);
         res.status(500).json({ success: false, message: 'Server error while fetching seller products.' });
+    }
+});
+
+/**
+ * @route   GET /api/products/recommendations
+ * @desc    Get recommended products based on user's viewed and purchased categories
+ * @access  Private
+ */
+router.get('/recommendations', protect, async (req, res) => {
+    try {
+        console.log('Recommendations endpoint called for user:', req.user.id);
+        const limit = parseInt(req.query.limit) || 10;
+        console.log('Limit:', limit);
+        const { User } = require('../models/userModel');
+        const user = await User.findById(req.user.id);
+        console.log('User found:', !!user);
+
+        if (!user) {
+            console.log('User not found');
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Ensure arrays exist (for backward compatibility)
+        if (!user.viewedCategories) user.viewedCategories = [];
+        if (!user.purchasedCategories) user.purchasedCategories = [];
+        console.log('Viewed categories:', user.viewedCategories.length);
+        console.log('Purchased categories:', user.purchasedCategories.length);
+
+        // Combine viewed and purchased categories, prioritizing purchased (weight 2x)
+        const categoryScores = {};
+
+        // Add viewed categories with weight 1
+        user.viewedCategories.forEach(cat => {
+            categoryScores[cat.category] = (categoryScores[cat.category] || 0) + cat.count;
+        });
+
+        // Add purchased categories with weight 2
+        user.purchasedCategories.forEach(cat => {
+            categoryScores[cat.category] = (categoryScores[cat.category] || 0) + (cat.count * 2);
+        });
+
+        console.log('Category scores:', categoryScores);
+
+        // Sort categories by score descending
+        const sortedCategories = Object.entries(categoryScores)
+            .sort(([,a], [,b]) => b - a)
+            .map(([category]) => category);
+
+        console.log('Sorted categories:', sortedCategories);
+
+        if (sortedCategories.length === 0) {
+            console.log('No categories, fetching random products');
+            // If no categories, return random products
+            const products = await Product.find({ seller: { $ne: req.user.id } })
+                .populate('seller', 'name email')
+                .limit(limit)
+                .sort({ createdAt: -1 });
+            console.log('Random products found:', products.length);
+            return res.status(200).json({ success: true, products });
+        }
+
+        console.log('Fetching products for categories:', sortedCategories);
+        // Find products in top categories, excluding user's own products
+        const products = await Product.find({
+            category: { $in: sortedCategories },
+            seller: { $ne: req.user.id }
+        })
+            .populate('seller', 'name email')
+            .limit(limit)
+            .sort({ createdAt: -1 });
+
+        console.log('Recommended products found:', products.length);
+        res.status(200).json({ success: true, products });
+    } catch (error) {
+        console.error('Error fetching recommendations:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ success: false, message: 'Server error while fetching recommendations.' });
     }
 });
 
@@ -124,6 +201,27 @@ router.get('/:id', async (req, res) => {
         if (!product) {
             return res.status(404).json({ success: false, message: 'Product not found' });
         }
+
+        // Increment view count
+        await Product.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } });
+
+        // Track viewed category for logged-in users
+        if (req.user) {
+            const { User } = require('../models/userModel');
+            const user = await User.findById(req.user.id);
+            if (user) {
+                // Ensure viewedCategories array exists
+                if (!user.viewedCategories) user.viewedCategories = [];
+                const categoryIndex = user.viewedCategories.findIndex(cat => cat.category === product.category);
+                if (categoryIndex > -1) {
+                    user.viewedCategories[categoryIndex].count += 1;
+                } else {
+                    user.viewedCategories.push({ category: product.category, count: 1 });
+                }
+                await user.save();
+            }
+        }
+
         res.status(200).json({ success: true, product });
     } catch (error) {
         console.error('Error fetching product:', error);
@@ -133,13 +231,42 @@ router.get('/:id', async (req, res) => {
 
 /**
  * @route   GET /api/products
- * @desc    Get all products
+ * @desc    Get all products with optional filtering and pagination
  * @access  Public
  */
 router.get('/', async (req, res) => {
     try {
-        const products = await Product.find().populate('seller', 'name email');
-        res.status(200).json({ success: true, products });
+        const { category, limit, page } = req.query;
+        let query = {};
+
+        if (category) {
+            query.category = category;
+        }
+
+        const pageNum = parseInt(page) || 1;
+        const limitNum = parseInt(limit) || 20; // Default limit to 20
+        const skip = (pageNum - 1) * limitNum;
+
+        let productsQuery = Product.find(query).populate('seller', 'name email');
+
+        // Get total count for pagination
+        const totalProducts = await Product.countDocuments(query);
+
+        const products = await productsQuery.skip(skip).limit(limitNum);
+
+        const totalPages = Math.ceil(totalProducts / limitNum);
+
+        res.status(200).json({
+            success: true,
+            products,
+            pagination: {
+                currentPage: pageNum,
+                totalPages,
+                totalProducts,
+                hasNextPage: pageNum < totalPages,
+                hasPrevPage: pageNum > 1
+            }
+        });
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ success: false, message: 'Server error while fetching products.' });
@@ -210,6 +337,83 @@ router.delete('/:id', protect, sellerOnly, checkProductOwner, async (req, res) =
     } catch (error) {
         console.error('Error deleting product:', error);
         res.status(500).json({ success: false, message: 'Server error while deleting product.' });
+    }
+});
+
+/**
+ * @route   GET /api/products/recommendations
+ * @desc    Get recommended products based on user's viewed and purchased categories
+ * @access  Private
+ */
+router.get('/recommendations', protect, async (req, res) => {
+    try {
+        console.log('Recommendations endpoint called for user:', req.user.id);
+        const limit = parseInt(req.query.limit) || 10;
+        console.log('Limit:', limit);
+        const { User } = require('../models/userModel');
+        const user = await User.findById(req.user.id);
+        console.log('User found:', !!user);
+
+        if (!user) {
+            console.log('User not found');
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Ensure arrays exist (for backward compatibility)
+        if (!user.viewedCategories) user.viewedCategories = [];
+        if (!user.purchasedCategories) user.purchasedCategories = [];
+        console.log('Viewed categories:', user.viewedCategories.length);
+        console.log('Purchased categories:', user.purchasedCategories.length);
+
+        // Combine viewed and purchased categories, prioritizing purchased (weight 2x)
+        const categoryScores = {};
+
+        // Add viewed categories with weight 1
+        user.viewedCategories.forEach(cat => {
+            categoryScores[cat.category] = (categoryScores[cat.category] || 0) + cat.count;
+        });
+
+        // Add purchased categories with weight 2
+        user.purchasedCategories.forEach(cat => {
+            categoryScores[cat.category] = (categoryScores[cat.category] || 0) + (cat.count * 2);
+        });
+
+        console.log('Category scores:', categoryScores);
+
+        // Sort categories by score descending
+        const sortedCategories = Object.entries(categoryScores)
+            .sort(([,a], [,b]) => b - a)
+            .map(([category]) => category);
+
+        console.log('Sorted categories:', sortedCategories);
+
+        if (sortedCategories.length === 0) {
+            console.log('No categories, fetching random products');
+            // If no categories, return random products
+            const products = await Product.find({ seller: { $ne: req.user.id } })
+                .populate('seller', 'name email')
+                .limit(limit)
+                .sort({ createdAt: -1 });
+            console.log('Random products found:', products.length);
+            return res.status(200).json({ success: true, products });
+        }
+
+        console.log('Fetching products for categories:', sortedCategories);
+        // Find products in top categories, excluding user's own products
+        const products = await Product.find({
+            category: { $in: sortedCategories },
+            seller: { $ne: req.user.id }
+        })
+            .populate('seller', 'name email')
+            .limit(limit)
+            .sort({ createdAt: -1 });
+
+        console.log('Recommended products found:', products.length);
+        res.status(200).json({ success: true, products });
+    } catch (error) {
+        console.error('Error fetching recommendations:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ success: false, message: 'Server error while fetching recommendations.' });
     }
 });
 

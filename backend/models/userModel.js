@@ -44,7 +44,19 @@ const baseUserSchema = new mongoose.Schema({
     wishlist: [{
         product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
         addedAt: { type: Date, default: Date.now }
-    }]
+    }],
+    viewedCategories: [{
+        category: { type: String, required: true },
+        count: { type: Number, default: 1 }
+    }],
+    purchasedCategories: [{
+        category: { type: String, required: true },
+        count: { type: Number, default: 1 }
+    }],
+    resetPasswordToken: { type: String },
+    resetPasswordExpires: { type: Date },
+    otp: { type: String },
+    otpExpires: { type: Date }
 }, baseOptions);
 
 const User = mongoose.model('User', baseUserSchema);

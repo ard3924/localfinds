@@ -7,6 +7,9 @@ import ProductDetailPage from './pages/ProductDetailPage.jsx';
 import StorePage from './pages/StorePage.jsx';
 import SignInPage from './pages/SignInPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
+import VerificationPage from './pages/VerificationPage.jsx';
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 import HelpPage from './pages/HelpPage.jsx';
 import AccountPage from './pages/AccountPage.jsx';
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx';
@@ -36,6 +39,9 @@ export default function App() {
                 <Route path="/store/:sellerId" element={<StorePage />} />
                 <Route path="/signin" element={<SignInPage />} />
                 <Route path="/signup" element={<SignUpPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/verify-otp" element={<VerificationPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/help" element={<HelpPage />} />
                 <Route path="/cart" element={<CartPage />} />
 

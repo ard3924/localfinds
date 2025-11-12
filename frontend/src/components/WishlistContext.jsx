@@ -54,6 +54,7 @@ export const WishlistProvider = ({ children }) => {
     const addToWishlist = async (item) => {
         const token = localStorage.getItem('token');
         if (!token) {
+            toast.error('Please sign in to add items to your wishlist');
             throw new Error('Authentication required');
         }
 

@@ -6,8 +6,32 @@ import { useCart } from '../components/CartContext.jsx';
 import { useWishlist } from '../components/WishlistContext.jsx';
 import CustomerReviews from '../components/CustomerReviews.jsx';
 import axiosInstance from '../axiosintreceptor.js';
+import ProductCard from '../components/ProductCard.jsx';
+import Slider from "react-slick";
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 import toast from 'react-hot-toast';
-import { Loader2, Heart, Star, MessageCircle } from 'lucide-react';
+import { Loader2, Heart, Star, MessageCircle, ChevronLeft, ChevronRight, Flag } from 'lucide-react';
+
+// --- Custom Carousel Components ---
+
+const NextArrow = (props) => {
+  const { className, style, onClick } = props;
+  return (
+    <div className={`${className} custom-arrow next-arrow`} onClick={onClick}>
+      <ChevronRight size={24} />
+    </div>
+  );
+};
+
+const PrevArrow = (props) => {
+  const { className, style, onClick } = props;
+  return (
+    <div className={`${className} custom-arrow prev-arrow`} onClick={onClick}>
+      <ChevronLeft size={24} />
+    </div>
+  );
+};
 
 const ProductDetailPage = () => {
   const { id } = useParams();
@@ -16,23 +40,103 @@ const ProductDetailPage = () => {
   const { addToWishlist, isInWishlist } = useWishlist();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
   const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [isImageLoading, setIsImageLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportNote, setReportNote] = useState('');
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  const generateAvatarColor = (name) => {
+    if (!name) return 'bg-gray-300';
+    const colors = [
+      'bg-red-200 text-red-800', 'bg-green-200 text-green-800', 'bg-blue-200 text-blue-800',
+      'bg-yellow-200 text-yellow-800', 'bg-indigo-200 text-indigo-800', 'bg-purple-200 text-purple-800',
+      'bg-pink-200 text-pink-800', 'bg-teal-200 text-teal-800'
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash % colors.length);
+    return colors[index];
+  };
+
+  // Settings for the related products carousel
+  const sliderSettings = {
+    dots: true,
+    infinite: relatedProducts.length > 4, // Only loop if there are more slides than shown
+    speed: 500,
+    nextArrow: <NextArrow />,
+    prevArrow: <PrevArrow />,
+    appendDots: dots => (
+      <div style={{ bottom: "-40px" }}>
+        <ul style={{ margin: "0px" }}> {dots} </ul>
+      </div>
+    ),
+    slidesToShow: 4,
+    slidesToScroll: 4,
+    initialSlide: 0,
+    responsive: [
+      {
+        breakpoint: 1024, // For tablets
+        settings: {
+          slidesToShow: 3,
+          slidesToScroll: 3,
+        }
+      },
+      {
+        breakpoint: 640, // For mobile
+        settings: {
+          slidesToShow: 2,
+          slidesToScroll: 2,
+        }
+      }
+    ]
+  };
 
   useEffect(() => {
-    const fetchProduct = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axiosInstance.get(`/products/${id}`);
-        if (response.data.success) {
-          setProduct(response.data.product);
-          if (Array.isArray(response.data.product.images) && response.data.product.images.length > 0) {
-            setSelectedImage(response.data.product.images[0].url);
+
+        // Fetch product and user data in parallel for efficiency
+        const token = localStorage.getItem('token');
+        const userPromise = token ? axiosInstance.get('/user/account').catch(() => null) : Promise.resolve(null);
+        const [productResponse, userResponse] = await Promise.all([
+          axiosInstance.get(`/products/${id}`),
+          userPromise
+        ]);
+
+        if (productResponse.data.success) {
+          const fetchedProduct = productResponse.data.product;
+          setProduct(fetchedProduct);
+          if (Array.isArray(fetchedProduct.images) && fetchedProduct.images.length > 0) {
+            setSelectedImage(fetchedProduct.images[0].url);
+          }
+
+          // Fetch related products based on the fetched product's category
+          if (fetchedProduct.category) {
+            try {
+              const relatedResponse = await axiosInstance.get(`/products?category=${fetchedProduct.category}&limit=5`);
+              if (relatedResponse.data.success) {
+                setRelatedProducts(relatedResponse.data.products.filter(p => p._id !== id).slice(0, 4));
+              }
+            } catch (relatedError) {
+              console.error("Failed to fetch related products:", relatedError);
+            }
           }
         } else {
           throw new Error('Failed to fetch product');
         }
+
+        if (userResponse?.data) {
+          setCurrentUser(userResponse.data);
+        }
+
       } catch (err) {
         console.error('Error fetching product:', err);
         setError('Failed to load product. Please try again later.');
@@ -42,22 +146,28 @@ const ProductDetailPage = () => {
       }
     };
 
-    if (id) { // Only fetch if there is an ID
-      fetchProduct();
+    if (id) {
+      fetchData();
     }
   }, [id]);
 
-  const handleAddToCart = async () => {
-    // Check if user is a seller
-    try {
-      const userResponse = await axiosInstance.get('/user/account');
-      if (userResponse.data.role === 'seller') {
-        toast.error('Sellers cannot add items to cart. Please sign in as a buyer to purchase products.');
-        return;
-      }
-    } catch (err) {
-      console.error('Error checking user role:', err);
-      toast.error('Failed to verify user role. Please try again.');
+  useEffect(() => {
+    if (selectedImage) {
+      setIsImageLoading(true);
+    }
+  }, [selectedImage]);
+
+  const handleAddToCart = () => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Please sign in to add items to your cart.');
+      navigate('/signin');
+      return;
+    }
+
+    if (currentUser && currentUser.role === 'seller') {
+      toast.error('Sellers cannot add items to cart. Please sign in as a buyer to purchase products.');
       return;
     }
 
@@ -67,14 +177,7 @@ const ProductDetailPage = () => {
         toast.success(`${quantity} x ${product.name} added to cart!`);
       }
     } catch (error) {
-      if (error.message === 'Authentication required') {
-        toast.error('Please sign in to add items to your cart');
-        setTimeout(() => {
-          navigate('/signin');
-        }, 50);
-      } else {
-        toast.error('Failed to add item to cart');
-      }
+      toast.error('Failed to add item to cart');
     }
   };
 
@@ -84,30 +187,20 @@ const ProductDetailPage = () => {
         await addToWishlist(product);
       }
     } catch (error) {
-      if (error.message === 'Authentication required') {
-        toast.error('Please sign in to add items to your wishlist');
-        setTimeout(() => {
-          navigate('/signin');
-        }, 50);
-      } else {
-        toast.error('Failed to add item to wishlist');
-      }
+      toast.error(error.message || 'Failed to add item to wishlist');
+      if (error.message === 'Authentication required') navigate('/signin');
     }
   };
 
   const handleContactSeller = async () => {
     try {
-      // Check if user is authenticated
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!currentUser) {
         toast.error('Please sign in to contact the seller');
         navigate('/signin');
         return;
       }
 
-      // Check if user is trying to contact themselves
-      const userResponse = await axiosInstance.get('/user/account');
-      if (userResponse.data.id === product.seller._id) {
+      if (currentUser.id === product.seller._id) {
         toast.error('You cannot contact yourself');
         return;
       }
@@ -144,6 +237,45 @@ const ProductDetailPage = () => {
     });
   };
 
+  const handleReportProduct = async () => {
+    if (!currentUser) {
+      toast.error('Please sign in to report products');
+      navigate('/signin');
+      return;
+    }
+
+    if (!reportNote.trim()) {
+      toast.error('Please provide a reason for reporting');
+      return;
+    }
+
+    setIsSubmittingReport(true);
+    try {
+      const response = await axiosInstance.post('/reports', {
+        productId: product._id,
+        note: reportNote.trim()
+      });
+
+      if (response.data.success) {
+        toast.success('Product reported successfully');
+        setShowReportModal(false);
+        setReportNote('');
+      } else {
+        toast.error('Failed to report product');
+      }
+    } catch (error) {
+      console.error('Error reporting product:', error);
+      if (error.response?.status === 401) {
+        toast.error('Please sign in to report products');
+        navigate('/signin');
+      } else {
+        toast.error('Failed to report product. Please try again.');
+      }
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
   const stockStatus = () => {
     if (!product || typeof product.stock === 'undefined') {
       return <span className="text-sm font-medium text-gray-500">Availability unknown</span>;
@@ -156,10 +288,6 @@ const ProductDetailPage = () => {
     }
     return <span className="text-sm font-medium text-green-600">In Stock</span>;
   };
-
-  // Dummy data for reviews summary
-  const averageRating = 4.5;
-  const reviewCount = 23;
 
   if (loading) {
     return (
@@ -211,12 +339,15 @@ const ProductDetailPage = () => {
           <div className="bg-orange-50 p-8 rounded-lg flex justify-center items-center">
             {selectedImage ? (
               <div className="space-y-4">
-                {/* Main Image */}
-                <div className="overflow-hidden rounded-lg">
+                <div className="relative overflow-hidden rounded-lg">
+                  {isImageLoading && (
+                    <div className="absolute inset-0 bg-gray-200 animate-pulse"></div>
+                  )}
                   <img
                     src={selectedImage}
                     alt={product.name}
-                    className="max-h-96 w-full object-contain rounded-lg transition-transform duration-300 ease-in-out hover:scale-110"
+                    className={`max-h-96 w-full object-contain rounded-lg transition-all duration-300 ease-in-out hover:scale-110 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
+                    onLoad={() => setIsImageLoading(false)}
                   />
                 </div>
                 {/* Thumbnail Images */}
@@ -227,7 +358,7 @@ const ProductDetailPage = () => {
                         key={index}
                         src={image.url}
                         alt={`${product.name} ${index + 1}`}
-                        className={`w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity ${selectedImage === image.url ? 'ring-2 ring-green-500' : ''}`}
+                        className={`w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-all ${selectedImage === image.url ? 'ring-2 ring-green-500' : 'border border-transparent'}`}
                         onClick={() => setSelectedImage(image.url)}
                       />
                     ))}
@@ -244,13 +375,14 @@ const ProductDetailPage = () => {
           {/* Product Details */}
           <div>
             <h2 className="text-4xl font-bold text-gray-800 mb-2">{product.name}</h2>
+            {product.tagline && <p className="text-lg text-gray-600 mb-2">{product.tagline.split(',').map(s => s.trim()).join(' | ')}</p>}
             <div className="flex items-center space-x-4 mb-4">
               <div className="flex items-center">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className={`w-5 h-5 ${i < Math.floor(averageRating) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
+                {[...Array(5)].map((_, i) => ( // Use real data if available
+                  <Star key={i} className={`w-5 h-5 ${i < Math.floor(product.averageRating || 0) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
                 ))}
                 <a href="#reviews" className="ml-2 text-sm font-medium text-gray-500 hover:text-gray-700">
-                  ({reviewCount} reviews)
+                  ({product.reviewCount || 0} reviews)
                 </a>
               </div>
               <span className="text-gray-400">|</span>
@@ -273,11 +405,15 @@ const ProductDetailPage = () => {
             </div>
 
             <div className="bg-gray-100 rounded-lg p-4 mb-6">
-              <div className="flex items-center">
-                <img src="https://i.pravatar.cc/40?img=2" alt="Seller Avatar" className="w-10 h-10 rounded-full mr-3" />
-                <div className="flex-grow">
-                  <p className="font-semibold">{product.seller?.name || 'Unknown Seller'}</p>
-                  <p className="text-xs text-gray-500">Active seller</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold mr-3 ${generateAvatarColor(product.seller?.name || 'Unknown Seller')}`}>
+                    {(product.seller?.name || 'U')[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-semibold">{product.seller?.name || 'Unknown Seller'}</p>
+                    <p className="text-xs text-gray-500">Active seller</p>
+                  </div>
                 </div>
                 <button onClick={() => navigate('/store/' + product.seller?._id)} className="text-sm text-green-600 font-semibold hover:underline">View Store</button>
               </div>
@@ -320,20 +456,108 @@ const ProductDetailPage = () => {
               >
                 <Heart className={`w-6 h-6 ${product && isInWishlist(product._id) ? 'fill-current' : ''}`} />
               </button>
+              <button
+                onClick={() => setShowReportModal(true)}
+                className="px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center space-x-1"
+              >
+                <Flag className="w-4 h-4" />
+                <span>Report</span>
+              </button>
             </div>
 
             {/* Contact Seller Button */}
-            <button
-              onClick={handleContactSeller}
-              className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
-            >
-              <MessageCircle className="w-5 h-5" />
-              <span>Contact Seller</span>
-            </button>
+            {currentUser?._id !== product.seller?._id && (
+              <button
+                onClick={handleContactSeller}
+                className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
+              >
+                <MessageCircle className="w-5 h-5" />
+                <span>Contact Seller</span>
+              </button>
+            )}
+
 
 
           </div>
         </div>
+
+        {/* Related Products Section */}
+        {relatedProducts.length > 0 && (
+          <div className="mt-16">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Related Products</h3>
+            <Slider {...sliderSettings}>
+              {relatedProducts.map(relatedProduct => (
+                <div key={relatedProduct._id} className="px-2 pb-4"> {/* Add padding for spacing between cards */}
+                  <ProductCard product={relatedProduct} />
+                </div>
+              ))}
+            </Slider>
+          </div>
+        )}
+
+        {/* Custom styles for the carousel */}
+        <style>{`
+          .custom-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.2s ease-in-out;
+          }
+          .custom-arrow:hover {
+            background-color: white;
+            transform: translateY(-50%) scale(1.1);
+          }
+          .next-arrow { right: -20px; }
+          .prev-arrow { left: -20px; }
+          .slick-dots li button:before {
+            font-size: 10px;
+            color: #9ca3af;
+          }
+          .slick-dots li.slick-active button:before {
+            color: #16a34a;
+          }
+        `}</style>
+
+        {/* Report Modal */}
+        {showReportModal && (
+          <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold mb-4">Report Product</h3>
+              <textarea
+                value={reportNote}
+                onChange={(e) => setReportNote(e.target.value)}
+                placeholder="Please describe why you are reporting this product..."
+                className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
+                rows={4}
+              />
+              <div className="flex space-x-3 mt-4">
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReportProduct}
+                  disabled={isSubmittingReport}
+                  className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:bg-red-300 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingReport ? 'Submitting...' : 'Submit Report'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <CustomerReviews productId={id} />
       </main>

@@ -27,6 +27,14 @@ const ProductCard = ({ product }) => {
   };
 
   const handleAddToCart = async () => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Please sign in to add items to your cart');
+      navigate('/signin');
+      return;
+    }
+
     // Check if user is a seller
     try {
       const userResponse = await axiosInstance.get('/user/account');
@@ -44,14 +52,7 @@ const ProductCard = ({ product }) => {
       addToCart(product);
       toast.success(`${product.name} added to cart!`);
     } catch (error) {
-      if (error.message === 'Authentication required') {
-        toast.error('Please sign in to add items to your cart');
-        setTimeout(() => {
-          navigate('/signin');
-        }, 50);
-      } else {
-        toast.error('Failed to add item to cart');
-      }
+      toast.error('Failed to add item to cart');
     }
   };
 
@@ -62,7 +63,7 @@ const ProductCard = ({ product }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg overflow-hidden transition duration-300 ease-in-out hover:shadow-xl border border-gray-200">
+    <div className="bg-white rounded-lg overflow-hidden transition duration-300 ease-in-out hover:shadow-xl border border-gray-200 flex flex-col h-full">
       <div className="relative">
         {product.images && product.images.length > 0 ? (
           <img
@@ -88,12 +89,15 @@ const ProductCard = ({ product }) => {
         )}
       </div>
 
-      <div className="p-3">
-        <p className="text-sm font-medium text-gray-800 truncate cursor-pointer" onClick={() => window.location.href = `/product/${product._id}`}>{product.name}</p>
-        {displayPrice()}
+      <div className="p-3 flex flex-col flex-grow">
+        <div className="flex-grow">
+          <p className="text-sm font-medium text-gray-800 truncate cursor-pointer" onClick={() => window.location.href = `/product/${product._id}`}>{product.name}</p>
+          {product.tagline && <p className="text-xs text-gray-600 mb-1">{product.tagline.split(',').map(s => s.trim()).join(' | ')}</p>}
+          {displayPrice()}
+        </div>
         <button
           onClick={handleAddToCart}
-          className="w-full mt-2 bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors text-sm"
+          className="w-full bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors text-sm"
         >
           Add to Cart
         </button>

@@ -2,6 +2,39 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Facebook, Twitter, Instagram, Linkedin, ArrowUp } from 'lucide-react';
 
+// --- Data for Footer Links ---
+const footerSections = [
+    {
+        title: 'Quick Links',
+        links: [
+            { text: 'Log In', to: '/signin' },
+            { text: 'Marketplace', to: '/marketplace' },
+            { text: 'Become a Seller', to: '/signup?type=seller' },
+        ],
+    },
+    {
+        title: 'Support',
+        links: [
+            { text: 'Help Center', to: '/help' },
+            { text: 'Contact Us', to: '/help' },
+        ],
+    },
+    {
+        title: 'Legal',
+        links: [
+            { text: 'Privacy Policy', to: '/privacy-policy' },
+            { text: 'Terms of Service', to: '/terms-of-service' },
+        ],
+    },
+];
+
+const socialLinks = [
+    { href: '#', icon: <Facebook size={20} />, label: 'Visit our Facebook page' },
+    { href: '#', icon: <Twitter size={20} />, label: 'Visit our Twitter page' },
+    { href: '#', icon: <Instagram size={20} />, label: 'Visit our Instagram page' },
+    { href: '#', icon: <Linkedin size={20} />, label: 'Visit our LinkedIn page' },
+];
+
 const Footer = () => {
     const [isVisible, setIsVisible] = useState(false);
 
@@ -41,42 +74,27 @@ const Footer = () => {
                             <p className="mt-2 text-gray-500 text-sm">Discover your neighborhood's hidden gems and support local sellers.</p>
                         </div>
 
-                        {/* Quick Links */}
-                        <div>
-                            <h4 className="font-semibold text-gray-900">Quick Links</h4>
-                            <ul className="mt-4 space-y-2">
-                                <li><Link to="/marketplace" className="text-gray-500 hover:text-green-600 text-sm">Marketplace</Link></li>
-                                <li><Link to="/signup?type=seller" className="text-gray-500 hover:text-green-600 text-sm">Become a Seller</Link></li>
-                            </ul>
-                        </div>
-
-                        {/* Support */}
-                        <div>
-                            <h4 className="font-semibold text-gray-900">Support</h4>
-                            <ul className="mt-4 space-y-2">
-                                <li><Link to="/help" className="text-gray-500 hover:text-green-600 text-sm">Help Center</Link></li>
-                                <li><Link to="/help" className="text-gray-500 hover:text-green-600 text-sm">Contact Us</Link></li>
-                                <li><a href="#" className="text-gray-500 hover:text-green-600 text-sm">Safety Tips</a></li>
-                            </ul>
-                        </div>
-
-                        {/* Legal */}
-                        <div>
-                            <h4 className="font-semibold text-gray-900">Legal</h4>
-                            <ul className="mt-4 space-y-2">
-                                <li><a href="#" className="text-gray-500 hover:text-green-600 text-sm">Privacy Policy</a></li>
-                                <li><a href="#" className="text-gray-500 hover:text-green-600 text-sm">Terms of Service</a></li>
-                            </ul>
-                        </div>
+                        {/* Dynamic Footer Sections */}
+                        {footerSections.map((section) => (
+                            <div key={section.title}>
+                                <h4 className="font-semibold text-gray-900">{section.title}</h4>
+                                <ul className="mt-4 space-y-2">
+                                    {section.links.map((link) => (
+                                        <li key={link.text}>
+                                            <Link to={link.to} className="text-gray-500 hover:text-green-600 text-sm">{link.text}</Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
                     </div>
 
                     <div className="mt-8 border-t border-gray-200 pt-8 flex flex-col sm:flex-row justify-between items-center">
                         <p className="text-gray-500 text-sm">&copy; {new Date().getFullYear()} LocalFinds. All rights reserved.</p>
                         <div className="flex space-x-4 mt-4 sm:mt-0">
-                            <a href="#" className="text-gray-400 hover:text-gray-600"><Facebook size={20} /></a>
-                            <a href="#" className="text-gray-400 hover:text-gray-600"><Twitter size={20} /></a>
-                            <a href="#" className="text-gray-400 hover:text-gray-600"><Instagram size={20} /></a>
-                            <a href="#" className="text-gray-400 hover:text-gray-600"><Linkedin size={20} /></a>
+                            {socialLinks.map((social) => (
+                                <a key={social.label} href={social.href} className="text-gray-400 hover:text-gray-600" aria-label={social.label}>{social.icon}</a>
+                            ))}
                         </div>
                     </div>
                 </div>

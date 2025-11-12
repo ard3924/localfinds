@@ -3,6 +3,8 @@ const router = express.Router();
 const { User, Seller, Buyer } = require('../models/userModel');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const { protect, sellerOnly } = require('../middleware/authMiddleware');
 
 /**
@@ -253,6 +255,202 @@ router.get('/wishlist', protect, async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
+    }
+});
+
+// Create transporter for email
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+/**
+ * @route   POST /api/user/forgot-password
+ * @desc    Send password reset OTP via email
+ * @access  Public
+ */
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+    }
+
+    try {
+        const user = await User.findOne({ email });
+        if (!user) {
+            // Don't reveal if email exists or not for security
+            return res.status(200).json({ message: 'If an account with that email exists, an OTP has been sent.' });
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+
+        // Set OTP and expiration (10 minutes)
+        user.otp = otpHash;
+        user.otpExpires = Date.now() + 600000; // 10 minutes
+        await user.save();
+
+        // Send email with OTP
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Password Reset OTP',
+            html: `
+                <h2>Password Reset OTP</h2>
+                <p>You requested a password reset for your LocalFinds account.</p>
+                <p>Your OTP is: <strong>${otp}</strong></p>
+                <p>This OTP will expire in 10 minutes.</p>
+                <p>If you didn't request this, please ignore this email.</p>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({ message: 'If an account with that email exists, an OTP has been sent.' });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+/**
+ * @route   POST /api/user/verify-otp
+ * @desc    Verify OTP for password reset
+ * @access  Public
+ */
+router.post('/verify-otp', async (req, res) => {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        return res.status(400).json({ message: 'Email and OTP are required' });
+    }
+
+    try {
+        const user = await User.findOne({ email });
+        if (!user || !user.otp || !user.otpExpires) {
+            return res.status(400).json({ message: 'Invalid OTP' });
+        }
+
+        // Check if OTP has expired
+        if (Date.now() > user.otpExpires) {
+            return res.status(400).json({ message: 'OTP has expired' });
+        }
+
+        // Verify OTP
+        const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+        if (otpHash !== user.otp) {
+            return res.status(400).json({ message: 'Invalid OTP' });
+        }
+
+        // Generate a temporary session token for password reset
+        const resetToken = jwt.sign({ id: user.id, purpose: 'password_reset' }, process.env.JWT_SECRET, { expiresIn: '15m' });
+
+        // Clear OTP after successful verification
+        user.otp = undefined;
+        user.otpExpires = undefined;
+        await user.save();
+
+        res.status(200).json({ message: 'OTP verified successfully', resetToken });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+/**
+ * @route   POST /api/user/reset-password
+ * @desc    Reset password using verified session token
+ * @access  Public
+ */
+router.post('/reset-password', async (req, res) => {
+    const { resetToken, password } = req.body;
+
+    if (!resetToken || !password) {
+        return res.status(400).json({ message: 'Reset token and password are required' });
+    }
+
+    if (password.length < 6) {
+        return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+    }
+
+    try {
+        // Verify the reset token
+        const decoded = jwt.verify(resetToken, process.env.JWT_SECRET);
+        if (decoded.purpose !== 'password_reset') {
+            return res.status(400).json({ message: 'Invalid reset token' });
+        }
+
+        const user = await User.findById(decoded.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        // Update password
+        user.password = hashedPassword;
+        await user.save();
+
+        res.status(200).json({ message: 'Password has been reset successfully' });
+
+    } catch (err) {
+        if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+            return res.status(400).json({ message: 'Invalid or expired reset token' });
+        }
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+/**
+ * @route   PUT /api/user/change-password
+ * @desc    Change password for authenticated user
+ * @access  Private
+ */
+router.put('/change-password', protect, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(400).json({ message: 'New password must be at least 6 characters long' });
+    }
+
+    try {
+        const user = await User.findById(req.user.id).select('+password');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Verify current password
+        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Current password is incorrect' });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+        // Update password using base User model
+        await User.findByIdAndUpdate(req.user.id, { password: hashedPassword });
+
+        res.status(200).json({ message: 'Password has been changed successfully' });
+
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
     }
 });
 

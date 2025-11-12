@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Invoice = require('../models/invoiceModel');
 const Order = require('../models/orderModel');
-const User = require('../models/userModel');
+// --- FIX: Destructure the import to get the User model ---
+const { User } = require('../models/userModel');
 const Product = require('../models/productModel');
 const { protect } = require('../middleware/authMiddleware');
 const pdfGenerator = require('../utils/pdfGenerator');
@@ -23,8 +24,15 @@ const generateInvoiceForOrder = async (order) => {
 
     // Get seller info (assuming all items are from the same seller for simplicity)
     const sellerId = order.items[0].product.seller;
-    const seller = await User.findById(sellerId, 'name email');
-    const user = await User.findById(order.user, 'name email');
+    
+    // --- FIX: Handle null user or seller ---
+    const sellerData = await User.findById(sellerId, 'name email');
+    const userData = await User.findById(order.user, 'name email');
+
+    // Use placeholder data if user/seller was deleted to prevent crash
+    const seller = sellerData ? sellerData : { name: 'Deleted Seller', email: 'N/A' };
+    const user = userData ? userData : { name: 'Deleted User', email: 'N/A' };
+    // --- END OF FIX ---
 
     // Generate invoice number
     const invoiceNumber = `INV-${Date.now()}-${order._id.toString().slice(-6)}`;
@@ -64,8 +72,8 @@ const generateInvoiceForOrder = async (order) => {
     const pdfPath = await pdfGenerator.generateInvoice({
         invoice,
         order,
-        user,
-        seller,
+        user, // This is now a safe object
+        seller, // This is now a safe object
     });
 
     console.log('PDF generated at:', pdfPath);
@@ -85,14 +93,14 @@ const generateInvoiceForOrder = async (order) => {
  */
 router.get('/order/:orderId', protect, async (req, res) => {
     try {
-        const order = await Order.findById(req.params.orderId).populate('items.product', 'seller');
-        if (!order) {
+        const orderCheck = await Order.findById(req.params.orderId).populate('items.product', 'seller');
+        if (!orderCheck) {
             return res.status(404).json({ message: 'Order not found' });
         }
 
         // Check if user is order owner or seller of products in order
-        const isOwner = order.user.toString() === req.user.id;
-        const isSeller = order.items.some(item =>
+        const isOwner = orderCheck.user.toString() === req.user.id;
+        const isSeller = orderCheck.items.some(item =>
             item.product.seller && item.product.seller.toString() === req.user.id
         );
 
@@ -100,16 +108,13 @@ router.get('/order/:orderId', protect, async (req, res) => {
             return res.status(403).json({ message: 'Access denied' });
         }
 
-        let invoice = await Invoice.findOne({ order: req.params.orderId })
-            .populate('user', 'name email')
-            .populate('seller', 'name email')
-            .populate('items.product', 'name');
-
+        let invoice = await Invoice.findOne({ order: req.params.orderId });
+            
         if (!invoice) {
             // Generate invoice on demand if it doesn't exist
             try {
+                // --- FIX: Removed .populate('user', ...) ---
                 const order = await Order.findById(req.params.orderId)
-                    .populate('user', 'name email')
                     .populate('items.product', 'name seller images price');
 
                 if (!order) {
@@ -117,7 +122,7 @@ router.get('/order/:orderId', protect, async (req, res) => {
                 }
 
                 // Check permissions again for the order
-                const isOwner = order.user._id.toString() === req.user.id;
+                const isOwner = order.user.toString() === req.user.id;
                 const isSeller = order.items.some(item =>
                     item.product.seller && item.product.seller.toString() === req.user.id
                 );
@@ -132,6 +137,11 @@ router.get('/order/:orderId', protect, async (req, res) => {
                 return res.status(500).json({ message: 'Failed to generate invoice' });
             }
         }
+
+        // --- FIX: Populate invoice *after* it's found/created ---
+        await invoice.populate('user', 'name email');
+        await invoice.populate('seller', 'name email');
+        await invoice.populate('items.product', 'name');
 
         res.json({
             success: true,
@@ -167,7 +177,35 @@ router.get('/download/:invoiceNumber', protect, async (req, res) => {
         const filePath = pdfGenerator.getInvoicePath(invoice.invoiceNumber);
 
         if (!fs.existsSync(filePath)) {
-            return res.status(404).json({ message: 'Invoice PDF not found' });
+            // --- ADDED FIX: Regenerate PDF if missing ---
+            console.warn(`PDF not found for ${invoice.invoiceNumber}. Regenerating...`);
+            try {
+                const order = await Order.findById(invoice.order)
+                                    .populate('items.product', 'name seller images price');
+                
+                // We need to fetch user and seller data again for the PDF
+                const sellerData = await User.findById(invoice.seller, 'name email');
+                const userData = await User.findById(invoice.user, 'name email');
+
+                const seller = sellerData ? sellerData : { name: 'Deleted Seller', email: 'N/A' };
+                const user = userData ? userData : { name: 'Deleted User', email: 'N/A' };
+                
+                await pdfGenerator.generateInvoice({
+                    invoice,
+                    order,
+                    user,
+                    seller,
+                });
+
+                if (!fs.existsSync(filePath)) {
+                     return res.status(404).json({ message: 'Invoice PDF could not be generated.' });
+                }
+
+            } catch (regenError) {
+                console.error('Error regenerating missing PDF:', regenError);
+                return res.status(500).json({ message: 'Failed to regenerate invoice PDF.' });
+            }
+            // --- END OF ADDED FIX ---
         }
 
         // Set headers for file download
@@ -192,7 +230,7 @@ router.get('/download/:invoiceNumber', protect, async (req, res) => {
 router.post('/generate/:orderId', protect, async (req, res) => {
     try {
         const order = await Order.findById(req.params.orderId)
-            .populate('user', 'name email')
+            // .populate('user', 'name email') // Not needed for generateInvoiceForOrder
             .populate('items.product', 'name seller');
 
         if (!order) {

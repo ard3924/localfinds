@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
+import axiosInstance from '../axiosintreceptor.js';
+import toast from 'react-hot-toast';
 
 // --- FAQ Data ---
 const faqs = [
@@ -10,7 +12,7 @@ const faqs = [
   },
   {
     question: "How do I list an item for sale?",
-    answer: "After signing up as a seller, go to your profile and click 'Sell'. Upload photos, add a description, set your price, and publish your listing."
+    answer: "After signing up as a seller, go to your dashboard and click 'Add New Product'. Upload photos, add a description, set your price, and publish your listing."
   },
   {
     question: "How do I search for products?",
@@ -39,6 +41,31 @@ const HelpPage = () => {
     subject: '',
     message: ''
   });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await axiosInstance.get('/user/account');
+          setUser(response.data);
+          setContactForm({
+            name: response.data.name || '',
+            email: response.data.email || '',
+            subject: '',
+            message: ''
+          });
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      }
+      setLoading(false);
+    };
+
+    fetchUserData();
+  }, []);
 
   const toggleFAQ = (index) => {
     setOpenFAQ(openFAQ === index ? null : index);
@@ -51,18 +78,26 @@ const HelpPage = () => {
     });
   };
 
-  const handleContactSubmit = (e) => {
+  const handleContactSubmit = async (e) => {
     e.preventDefault();
-    // Here you would typically send the form data to your backend
-    alert('Thank you for your message! We\'ll get back to you soon.');
-    setContactForm({ name: '', email: '', subject: '', message: '' });
+    try {
+      const response = await axiosInstance.post('/inquiries', contactForm);
+      toast.success('Thank you for your message! We\'ll get back to you soon.');
+      setContactForm({
+        ...contactForm,
+        subject: '',
+        message: ''
+      });
+    } catch (error) {
+      toast.error('Failed to send message. Please try again.');
+    }
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 min-h-screen flex flex-col">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24 flex-grow">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Help Center</h1>

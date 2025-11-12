@@ -190,8 +190,6 @@ const ChatPage = () => {
         const content = newMessage.trim();
         if (!content || !socket || !activeChatId) return;
 
-        setSendingMessage(true);
-
         // --- 1. Create Optimistic Message ---
         const optimisticMessage = {
             _id: `temp_${Date.now()}`, // Temporary ID
@@ -210,8 +208,6 @@ const ChatPage = () => {
             chatId: activeChatId,
             content: content
         }, (response) => {
-            setSendingMessage(false);
-
             if (!response.success) {
                 // If server confirms failure
                 toast.error(response.error || 'Could not send message.');

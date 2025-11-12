@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import AccountSidebar from '../components/AccountSidebar.jsx';
@@ -6,6 +8,7 @@ import axiosInstance from '../axiosintreceptor.js';
 import toast from 'react-hot-toast';
 
 const AccountPage = () => {
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
         name: '',
         role: '',
@@ -20,6 +23,15 @@ const AccountPage = () => {
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [showPasswordChange, setShowPasswordChange] = useState(false);
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [passwordLoading, setPasswordLoading] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -59,6 +71,39 @@ const AccountPage = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const handlePasswordChange = (e) => {
+        setPasswordData({ ...passwordData, [e.target.name]: e.target.value });
+    };
+
+    const handlePasswordSubmit = async (e) => {
+        e.preventDefault();
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+            toast.error('New passwords do not match.');
+            return;
+        }
+        if (passwordData.newPassword.length < 6) {
+            toast.error('New password must be at least 6 characters long.');
+            return;
+        }
+
+        setPasswordLoading(true);
+        try {
+            await axiosInstance.put('/user/change-password', {
+                currentPassword: passwordData.currentPassword,
+                newPassword: passwordData.newPassword
+            });
+            toast.success('Password changed successfully!');
+            setShowPasswordChange(false);
+            setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+            setShowNewPassword(false);
+            setShowConfirmPassword(false);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to change password. Please try again.');
+        } finally {
+            setPasswordLoading(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -88,14 +133,24 @@ const AccountPage = () => {
                 <div className="lg:col-span-3 bg-white p-8 rounded-xl shadow-lg">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-3xl font-bold text-gray-900">My Profile</h2>
-                        {!isEditing && (
-                            <button
-                                onClick={() => setIsEditing(true)}
-                                className="bg-green-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors"
-                            >
-                                Edit Profile
-                            </button>
-                        )}
+                        <div className="flex gap-2">
+                            {!isEditing && !showPasswordChange && (
+                                <>
+                                    <button
+                                        onClick={() => setShowPasswordChange(true)}
+                                        className="bg-blue-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-600 transition-colors"
+                                    >
+                                        Change Password
+                                    </button>
+                                    <button
+                                        onClick={() => setIsEditing(true)}
+                                        className="bg-green-500 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors"
+                                    >
+                                        Edit Profile
+                                    </button>
+                                </>
+                            )}
+                        </div>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -231,6 +286,85 @@ const AccountPage = () => {
                             </div>
                         )}
                     </form>
+
+                    {showPasswordChange && (
+                        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50">
+                            <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full mx-4">
+                                <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Change Password</h3>
+                                <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                                    <div className="relative">
+                                        <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                                        <input
+                                            id="currentPassword"
+                                            type="password"
+                                            name="currentPassword"
+                                            placeholder="Current Password"
+                                            value={passwordData.currentPassword}
+                                            onChange={handlePasswordChange}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                                        <input
+                                            id="newPassword"
+                                            type={showNewPassword ? "text" : "password"}
+                                            name="newPassword"
+                                            placeholder="New Password"
+                                            value={passwordData.newPassword}
+                                            onChange={handlePasswordChange}
+                                            className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewPassword(!showNewPassword)}
+                                            className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
+                                        >
+                                            {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
+                                    <div className="relative">
+                                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                                        <input
+                                            id="confirmPassword"
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            name="confirmPassword"
+                                            placeholder="Confirm New Password"
+                                            value={passwordData.confirmPassword}
+                                            onChange={handlePasswordChange}
+                                            className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-3 top-9 text-gray-500 hover:text-gray-700"
+                                        >
+                                            {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
+                                    <div className="flex gap-4 mt-6">
+                                        <button
+                                            type="submit"
+                                            disabled={passwordLoading}
+                                            className="flex-1 bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors disabled:bg-blue-300 disabled:cursor-not-allowed"
+                                        >
+                                            {passwordLoading ? 'Changing Password...' : 'Change Password'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPasswordChange(false)}
+                                            className="flex-1 bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </main>
             <Footer />

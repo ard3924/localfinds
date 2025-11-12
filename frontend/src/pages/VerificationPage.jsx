@@ -1,7 +1,22 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import axiosInstance from '../axiosintreceptor.js';
+import toast from 'react-hot-toast';
+import { ShoppingCart } from 'lucide-react';
 
 const VerificationPage = () => {
   const inputRefs = useRef([]);
+  const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { email, purpose } = location.state || {};
+
+  useEffect(() => {
+    if (!email || (purpose !== 'forgot-password' && purpose !== 'change-password')) {
+      navigate('/forgot-password');
+    }
+  }, [email, purpose, navigate]);
 
   // Function to handle input change and move focus
   const handleChange = (e, index) => {
@@ -24,40 +39,54 @@ const VerificationPage = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const code = inputRefs.current.map(input => input.value).join('');
-    console.log('Verification Code:', code);
-    // Here you would typically send the code to your backend for verification
-    alert(Verifying );
+    const otp = inputRefs.current.map(input => input.value).join('');
+
+    if (otp.length !== 6) {
+      toast.error('Please enter the complete 6-digit OTP');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await axiosInstance.post('/user/verify-otp', { email, otp });
+      toast.success('OTP verified successfully!');
+      // Navigate to reset password page with reset token
+      navigate('/reset-password', { state: { resetToken: response.data.resetToken } });
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Invalid OTP. Please try again.';
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setResendLoading(true);
+    try {
+      await axiosInstance.post('/user/forgot-password', { email });
+      toast.success('OTP resent successfully!');
+    } catch (error) {
+      toast.error('Failed to resend OTP. Please try again.');
+    } finally {
+      setResendLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center p-4">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
       <header className="absolute top-0 left-0 right-0 flex items-center p-4 bg-white shadow-sm border-b border-gray-200">
         <div className="flex items-center space-x-2">
           {/* Green circle with play icon - Logo */}
-          <div className="bg-green-500 rounded-full p-1">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-white"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
+            <ShoppingCart className="h-5 w-5 text-[#00FF00]" />
           <span className="text-lg font-semibold text-gray-800">Local Finds</span>
         </div>
       </header>
 
       {/* Main Content - Centered Card */}
-      <div className="flex flex-col items-center justify-center flex-grow pt-20"> {/* pt-20 to push content below fixed header */}
+      <main className="flex flex-col items-center justify-center flex-grow pt-20">
         <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-lg text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Enter verification code</h2>
           <p className="text-gray-600 text-sm mb-8">
@@ -89,10 +118,17 @@ const VerificationPage = () => {
 
           <p className="mt-8 text-sm">
             <span className="text-gray-600">Didn't receive the code?</span>{' '}
-            <a href="#" className="text-green-600 hover:text-green-700 font-medium">Resend</a>
+            <button
+              type="button"
+              onClick={handleResendOTP}
+              disabled={resendLoading}
+              className="text-green-600 hover:text-green-700 font-medium disabled:text-green-400"
+            >
+              {resendLoading ? 'Resending...' : 'Resend'}
+            </button>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

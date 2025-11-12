@@ -8,10 +8,7 @@ import axiosInstance from '../axiosintreceptor.js';
 import { useDebounce } from '../hooks/useDebounce.js';
 import { useCart } from '../components/CartContext.jsx';
 
-const categories = [ // Added 'All' for resetting the filter
-  'All', 'Electronics', 'Home & Garden', 'Clothing & Accessories', 'Books',
-  'Sports & Outdoors', 'Toys & Games', 'Antiques', 'Other'
-];
+// Categories will be set dynamically based on seller's products
 
 // --- Sub-Components (SearchBar, CategoryNav, ProductCard, ProductSection) ---
 
@@ -32,7 +29,7 @@ const SearchBar = ({ searchTerm, onSearchChange }) => (
 );
 
 // CategoryNav Component
-const CategoryNav = ({ selectedCategory, onCategoryChange }) => (
+const CategoryNav = ({ categories, selectedCategory, onCategoryChange }) => (
   <section className="my-8">
     <h2 className="text-xl font-semibold mb-4 text-gray-800">Categories</h2>
     <div className="flex flex-wrap gap-2">
@@ -223,6 +220,22 @@ const ProductSection = ({ title, products, gridCols, showTwoRows = false, maxIte
 // --- Main Page Component ---
 const StorePage = () => {
   const { sellerId } = useParams();
+  const navigate = useNavigate();
+
+  const generateAvatarColor = (name) => {
+    if (!name) return 'bg-gray-300';
+    const colors = [
+      'bg-red-200 text-red-800', 'bg-green-200 text-green-800', 'bg-blue-200 text-blue-800',
+      'bg-yellow-200 text-yellow-800', 'bg-indigo-200 text-indigo-800', 'bg-purple-200 text-purple-800',
+      'bg-pink-200 text-pink-800', 'bg-teal-200 text-teal-800'
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash % colors.length);
+    return colors[index];
+  };
   const [products, setProducts] = useState([]);
   const [seller, setSeller] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -236,6 +249,7 @@ const StorePage = () => {
   const debouncedMaxPrice = useDebounce(maxPrice, 500);
   const [sortBy, setSortBy] = useState('recentlyAdded');
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const [categories, setCategories] = useState(['All']);
 
   const handleClearFilters = () => {
     setSearchTerm('');
@@ -256,6 +270,9 @@ const StorePage = () => {
           setProducts(response.data.products);
           if (response.data.products.length > 0) {
             setSeller(response.data.products[0].seller);
+            // Extract unique categories from products
+            const uniqueCategories = ['All', ...new Set(response.data.products.map(product => product.category).filter(Boolean))];
+            setCategories(uniqueCategories);
           }
         } else {
           throw new Error('Failed to fetch seller products');
@@ -349,10 +366,10 @@ const StorePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
       <Navbar />
 
-      <main className="container mx-auto px-4 py-8 max-w-7xl pt-20">
+      <main className="container mx-auto px-4 py-8 max-w-7xl pt-20 flex-grow">
         {/* Back Button */}
         <div className="mb-6">
           <button
@@ -365,13 +382,33 @@ const StorePage = () => {
         </div>
 
         {/* Seller Info Section */}
-        <div className="bg-white rounded-lg p-6 mb-8 shadow-md">
-          <div className="flex items-center space-x-4">
-            <img src="https://i.pravatar.cc/80?img=2" alt="Seller Avatar" className="w-20 h-20 rounded-full" />
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">{seller.name}</h1>
-              <p className="text-gray-600">{products.length} products available</p>
-              <p className="text-sm text-gray-500">Active seller</p>
+        <div className="bg-white rounded-lg p-8 mb-8 shadow-lg border border-gray-200">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
+            <div className="flex items-center space-x-6">
+              <div className={`w-24 h-24 rounded-full flex items-center justify-center text-2xl font-bold border-4 border-white shadow-md ${generateAvatarColor(seller.name)}`}>
+                {seller.name[0].toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <h1 className="text-4xl font-bold text-gray-900 mb-2">{seller.businessName || seller.name}</h1>
+                {seller.businessCategory && seller.businessCategory.length > 0 && (
+                  <p className="text-lg text-gray-700 mb-1">
+                    <span className="font-semibold">Categories:</span> {seller.businessCategory.join(', ')}
+                  </p>
+                )}
+                {seller.bio && (
+                  <p className="text-gray-600 italic mb-2">"{seller.bio}"</p>
+                )}
+                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                  <span>{products.length} products available</span>
+                  <span>•</span>
+                  <span className="flex items-center">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                    Active seller
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col space-y-2">
             </div>
           </div>
         </div>
@@ -394,7 +431,7 @@ const StorePage = () => {
           </div>
         </div>
         <div className="flex justify-between items-center">
-          <CategoryNav selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
+          <CategoryNav categories={categories} selectedCategory={selectedCategory} onCategoryChange={setSelectedCategory} />
           <div className="mt-8">
             <SortOptions sortBy={sortBy} onSortChange={setSortBy} />
           </div>

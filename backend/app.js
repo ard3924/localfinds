@@ -14,17 +14,17 @@ const orderRoutes = require('./routes/orderRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const { router: invoiceRoutes } = require('./routes/invoiceRoutes');
-// const testimonialRoutes = require('./routes/testimonialRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const inquiryRoutes = require('./routes/inquiryRoutes');
+const reportRoutes = require('./routes/reportRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
 const connectDB = require('./db/connection')
 const initializeSocket = require('./socket')
 const path = require('path')
 app.use(morgan('dev'))
-app.use(cors())
 app.use(helmet())
 app.use(express.json())
-
+app.use(cors())
 const server = createServer(app);
 const io = initializeSocket(server);
 
@@ -41,6 +41,8 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/reviews', reviewRoutes);
 // app.use('/api/testimonials', testimonialRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/inquiries', inquiryRoutes);

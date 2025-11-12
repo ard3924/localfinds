@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Package, Upload, X, ChevronLeft, ChevronRight, Truck, Eye, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Upload, X, ChevronLeft, ChevronRight, Truck, Eye, CheckCircle, Clock, AlertCircle, Search } from 'lucide-react';
 import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import axiosInstance from '../axiosintreceptor.js';
 import toast from 'react-hot-toast';
+import { useDebounce } from '../hooks/useDebounce.js';
 
 const SellerDashboardPage = () => {
     const [activeTab, setActiveTab] = useState('products');
@@ -17,12 +18,16 @@ const SellerDashboardPage = () => {
         description: '',
         price: '',
         category: '',
+        tagline: '',
         discountPercentage: '',
         discountStartDate: '',
         discountEndDate: '',
         images: []
     });
     const [selectedFiles, setSelectedFiles] = useState([]);
+    const [existingImages, setExistingImages] = useState([]);
+    const [imagesToDelete, setImagesToDelete] = useState([]);
+    const [combinedImages, setCombinedImages] = useState([]);
     const [showImageModal, setShowImageModal] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isDragging, setIsDragging] = useState(false);
@@ -36,14 +41,25 @@ const SellerDashboardPage = () => {
         note: '',
         estimatedDelivery: ''
     });
+    const [ordersCurrentPage, setOrdersCurrentPage] = useState(1);
+    const [ordersTotalPages, setOrdersTotalPages] = useState(1);
+    const [totalOrders, setTotalOrders] = useState(0);
+    const [orderSortBy, setOrderSortBy] = useState('dateDesc');
+    const ordersPerPage = 10;
+    const [productsTotalPages, setProductsTotalPages] = useState(1);
+    const productsPerPage = 8;
+    const [productSortBy, setProductSortBy] = useState('dateDesc');
+    const [productsCurrentPage, setProductsCurrentPage] = useState(1);
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
     useEffect(() => {
         if (activeTab === 'products') {
             fetchProducts();
         } else if (activeTab === 'orders') {
-            fetchOrders();
+            fetchOrders(1, orderSortBy);
         }
-    }, [activeTab]);
+    }, [activeTab, orderSortBy]);
 
     const fetchProducts = async () => {
         try {
@@ -56,10 +72,13 @@ const SellerDashboardPage = () => {
         }
     };
 
-    const fetchOrders = async () => {
+    const fetchOrders = async (page = 1, sortBy = 'dateDesc') => {
         try {
-            const response = await axiosInstance.get('/orders/seller');
+            const response = await axiosInstance.get(`/orders/seller?page=${page}&limit=${ordersPerPage}&sortBy=${sortBy}`);
             setOrders(response.data.orders);
+            setOrdersCurrentPage(response.data.pagination.currentPage);
+            setOrdersTotalPages(response.data.pagination.totalPages);
+            setTotalOrders(response.data.totalOrders);
         } catch (error) {
             toast.error('Failed to load orders');
         } finally {
@@ -67,11 +86,42 @@ const SellerDashboardPage = () => {
         }
     };
 
+    const handleOrderPageChange = (newPage) => {
+        if (newPage < 1 || newPage > ordersTotalPages) return;
+        fetchOrders(newPage, orderSortBy);
+    };
+
+    const handleSortChange = (e) => {
+        const newSortBy = e.target.value;
+        setOrderSortBy(newSortBy);
+    };
+
+    const processTagline = (value) => {
+        // Split by commas and trim
+        const sentences = value.split(',').map(s => s.trim());
+        // For each sentence, limit to 3 words
+        const processed = sentences.map(sentence => {
+            const words = sentence.split(/\s+/).filter(w => w.length > 0);
+            return words.slice(0, 3).join(' ');
+        });
+        // Join back with commas
+        let result = processed.join(', ');
+        // Truncate if > 100 chars
+        if (result.length > 100) {
+            result = result.substring(0, 97) + '...';
+        }
+        return result;
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        let processedValue = value;
+        if (name === 'tagline') {
+            processedValue = processTagline(value);
+        }
         setFormData(prev => ({
             ...prev,
-            [name]: value
+            [name]: processedValue
         }));
     };
 
@@ -100,9 +150,15 @@ const SellerDashboardPage = () => {
             description: '',
             price: '',
             category: '',
+            tagline: '',
+            discountPercentage: '',
+            discountStartDate: '',
+            discountEndDate: '',
             images: []
         });
         setSelectedFiles([]);
+        setExistingImages([]);
+        setImagesToDelete([]);
         setEditingProduct(null);
         setShowAddForm(false);
     };
@@ -110,18 +166,24 @@ const SellerDashboardPage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (selectedFiles.length === 0) {
-            toast.error('At least one image is required');
-            return;
-        }
+    // Combine existing and new images
+    const combinedImages = [
+        ...existingImages.map(img => ({ type: 'existing', data: img })),
+        ...selectedFiles.map(file => ({ type: 'new', data: file }))
+    ];
 
-        setIsSubmitting(true);
+    setIsSubmitting(true);
 
         const formDataToSend = new FormData();
         formDataToSend.append('name', formData.name);
         formDataToSend.append('description', formData.description);
         formDataToSend.append('price', formData.price);
         formDataToSend.append('category', formData.category);
+
+        // Add tagline if provided
+        if (formData.tagline) {
+            formDataToSend.append('tagline', formData.tagline);
+        }
 
         // Add discount fields if provided
         if (formData.discountPercentage) {
@@ -134,7 +196,14 @@ const SellerDashboardPage = () => {
             formDataToSend.append('discountEndDate', formData.discountEndDate);
         }
 
-        selectedFiles.forEach((file) => {
+        // Send images in the combined order
+        const existingImagesUrls = combinedImages.filter(img => img.type === 'existing').map(img => img.data.url);
+        const newFiles = combinedImages.filter(img => img.type === 'new').map(img => img.data);
+
+        existingImagesUrls.forEach((url) => {
+            formDataToSend.append('existingImages', url);
+        });
+        newFiles.forEach((file) => {
             formDataToSend.append('images', file);
         });
 
@@ -155,7 +224,6 @@ const SellerDashboardPage = () => {
                 toast.success('Product added successfully');
             }
             resetForm();
-            setSelectedFiles([]);
             fetchProducts();
         } catch (error) {
             const errorMessage = error.response?.data?.message || 'Failed to save product';
@@ -172,23 +240,26 @@ const SellerDashboardPage = () => {
             description: product.description,
             price: product.price.toString(),
             category: product.category,
+            tagline: product.tagline || '',
+            discountPercentage: product.discountPercentage ? product.discountPercentage.toString() : '',
+            discountStartDate: product.discountStartDate ? new Date(product.discountStartDate).toISOString().slice(0, 16) : '',
+            discountEndDate: product.discountEndDate ? new Date(product.discountEndDate).toISOString().slice(0, 16) : '',
             images: product.images.length > 0 ? product.images : [{ url: '' }]
         });
+        setExistingImages(product.images || []);
         setShowAddForm(true);
     };
 
     const handleDelete = async (productId) => {
-        if (window.confirm('Are you sure you want to delete this product?')) {
-            setDeletingProductId(productId);
-            try {
-                await axiosInstance.delete(`/products/${productId}`);
-                toast.success('Product deleted successfully');
-                fetchProducts();
-            } catch (error) {
-                toast.error('Failed to delete product');
-            } finally {
-                setDeletingProductId(null);
-            }
+        setDeletingProductId(productId);
+        try {
+            await axiosInstance.delete(`/products/${productId}`);
+            toast.success('Product deleted successfully');
+            fetchProducts();
+        } catch (error) {
+            toast.error('Failed to delete product');
+        } finally {
+            setDeletingProductId(null);
         }
     };
 
@@ -269,6 +340,53 @@ const SellerDashboardPage = () => {
         }
     };
 
+    const filteredProducts = products.filter(product => {
+        if (!debouncedSearchTerm.trim()) {
+            return true;
+        }
+        const lowercasedTerm = debouncedSearchTerm.toLowerCase();
+        return (
+            product.name.toLowerCase().includes(lowercasedTerm) ||
+            product.description.toLowerCase().includes(lowercasedTerm)
+        );
+    });
+
+    useEffect(() => {
+        const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+        setProductsTotalPages(totalPages > 0 ? totalPages : 1);
+        if (productsCurrentPage > totalPages && totalPages > 0) {
+            setProductsCurrentPage(totalPages);
+        }
+    }, [filteredProducts.length, productsPerPage, productsCurrentPage]);
+
+    const handleProductPageChange = (newPage) => {
+        if (newPage < 1 || newPage > productsTotalPages) return;
+        setProductsCurrentPage(newPage);
+    };
+
+    const sortedProducts = [...filteredProducts].sort((a, b) => {
+        switch (productSortBy) {
+            case 'priceAsc':
+                return a.price - b.price;
+            case 'priceDesc':
+                return b.price - a.price;
+            case 'nameAsc':
+                return a.name.localeCompare(b.name);
+            case 'nameDesc':
+                return b.name.localeCompare(a.name);
+            case 'dateAsc':
+                return new Date(a.createdAt) - new Date(b.createdAt);
+            case 'dateDesc':
+            default:
+                return new Date(b.createdAt) - new Date(a.createdAt);
+        }
+    });
+
+    const paginatedProducts = sortedProducts.slice(
+        (productsCurrentPage - 1) * productsPerPage,
+        productsCurrentPage * productsPerPage
+    );
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -340,79 +458,83 @@ const SellerDashboardPage = () => {
 
                         {/* Add/Edit Product Form */}
                         {showAddForm && (
-                            <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-                                <h2 className="text-xl font-semibold mb-4">
-                                    {editingProduct ? 'Edit Product' : 'Add New Product'}
-                                </h2>
-                                <form onSubmit={handleSubmit} className="space-y-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Product Name *
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="name"
-                                                value={formData.name}
-                                                onChange={handleInputChange}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                                required
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Category *
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="category"
-                                                value={formData.category}
-                                                onChange={handleInputChange}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                                required
-                                            />
-                                        </div>
+                            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                                <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+                                    <div className="flex justify-between items-center p-6 border-b">
+                                        <h2 className="text-2xl font-bold text-gray-800">
+                                            {editingProduct ? 'Edit Product' : 'Add New Product'}
+                                        </h2>
+                                        <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+                                            <X className="w-6 h-6" />
+                                        </button>
                                     </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Description *
-                                        </label>
-                                        <textarea
-                                            name="description"
-                                            value={formData.description}
-                                            onChange={handleInputChange}
-                                            rows="4"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                            required
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Price *
-                                        </label>
-                                        <input
-                                            type="number"
-                                            name="price"
-                                            value={formData.price}
-                                            onChange={handleInputChange}
-                                            step="0.01"
-                                            min="0"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                            required
-                                        />
-                                    </div>
-
-                                    {/* Discount Section */}
-                                    <div className="border-t pt-4 space-y-4">
-                                        <h3 className="text-lg font-medium text-gray-900">Discount (Optional)</h3>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <form id="add-product-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Discount Percentage (%)
-                                                </label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
+                                                <input
+                                                    type="text"
+                                                    name="name"
+                                                    value={formData.name}
+                                                    onChange={handleInputChange}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                                                <input
+                                                    type="text"
+                                                    name="category"
+                                                    value={formData.category}
+                                                    onChange={handleInputChange}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Tagline</label>
+                                            <input
+                                                type="text"
+                                                name="tagline"
+                                                value={formData.tagline}
+                                                onChange={handleInputChange}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                placeholder="Enter taglines separated by commas, each with max 3 words (max 100 characters)"
+                                                maxLength="100"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
+                                            <textarea
+                                                name="description"
+                                                value={formData.description}
+                                                onChange={handleInputChange}
+                                                rows="4"
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
+                                                <input
+                                                    type="number"
+                                                    name="price"
+                                                    value={formData.price}
+                                                    onChange={handleInputChange}
+                                                    step="0.01"
+                                                    min="0"
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Discount Percentage (%)</label>
                                                 <input
                                                     type="number"
                                                     name="discountPercentage"
@@ -425,10 +547,11 @@ const SellerDashboardPage = () => {
                                                     placeholder="e.g., 20"
                                                 />
                                             </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    Start Date
-                                                </label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Discount Start Date</label>
                                                 <input
                                                     type="datetime-local"
                                                     name="discountStartDate"
@@ -438,9 +561,7 @@ const SellerDashboardPage = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                    End Date
-                                                </label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Discount End Date</label>
                                                 <input
                                                     type="datetime-local"
                                                     name="discountEndDate"
@@ -450,111 +571,94 @@ const SellerDashboardPage = () => {
                                                 />
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Product Images *
-                                        </label>
-                                        <div className="space-y-4">
-                                            <div
-                                                className={`border-2 border-dashed rounded-lg p-4 transition-colors ${isDragging ? 'border-green-500 bg-green-50' : 'border-gray-300'}`}
-                                                onDragEnter={handleDragEnter}
-                                                onDragLeave={handleDragLeave}
-                                                onDragOver={handleDragOver}
-                                                onDrop={handleDrop}
-                                            >
-                                                <div className="text-center">
-                                                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                                                    <div className="mt-4">
-                                                        <label htmlFor="file-upload" className="cursor-pointer">
-                                                            <span className="mt-2 block text-sm font-medium text-gray-900">
-                                                                Upload product images
-                                                            </span>
-                                                            <input
-                                                                id="file-upload"
-                                                                name="images"
-                                                                type="file"
-                                                                multiple
-                                                                accept="image/*"
-                                                                onChange={(e) => {
-                                                                    addFiles(e.target.files);
-                                                                    e.target.value = null; // Reset file input to allow re-selecting the same file
-                                                                }}
-                                                                className="sr-only"
-                                                            />
-                                                        </label>
-                                                        <p className="mt-1 text-xs text-gray-500">
-                                                            PNG, JPG, GIF up to 5MB each (max 5 images)
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {selectedFiles.length > 0 && (
-                                                <div className="space-y-4">
-                                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                                        {selectedFiles.map((file, index) => (
-                                                            <div key={index} className="relative">
-                                                                <img
-                                                                    src={URL.createObjectURL(file)}
-                                                                    alt={`Preview ${index + 1}`}
-                                                                    className="w-full h-24 object-cover rounded-lg cursor-pointer"
-                                                                    onClick={() => {
-                                                                        setCurrentImageIndex(index);
-                                                                        setShowImageModal(true);
-                                                                    }}
-                                                                />
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Product Images *</label>
+                                            {editingProduct && existingImages.length > 0 && (
+                                                <div className="mb-4">
+                                                    <p className="text-sm text-gray-600 mb-2">Existing Images:</p>
+                                                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
+                                                        {existingImages.map((image, index) => (
+                                                            <div key={index} className="relative group">
+                                                                <img src={image.url} alt={`Existing ${index + 1}`} className="w-full h-24 object-cover rounded-lg" />
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => setSelectedFiles(selectedFiles.filter((_, i) => i !== index))}
-                                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                                                                    onClick={() => setExistingImages(existingImages.filter((_, i) => i !== index))}
+                                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                    title="Remove this image"
                                                                 >
-                                                                    ×
+                                                                    <X className="w-4 h-4" />
                                                                 </button>
                                                             </div>
                                                         ))}
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setCurrentImageIndex(0);
-                                                            setShowImageModal(true);
-                                                        }}
-                                                        className="text-green-600 hover:text-green-700 text-sm font-medium"
-                                                    >
-                                                        View all images ({selectedFiles.length})
-                                                    </button>
+                                                </div>
+                                            )}
+                                            <div
+                                                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-green-500 bg-green-50' : 'border-gray-300 hover:border-green-400'}`}
+                                                onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop}
+                                            >
+                                                <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                                                <label htmlFor="file-upload" className="cursor-pointer mt-2 block text-sm font-medium text-green-600 hover:text-green-500">
+                                                    Upload files <span className="text-gray-500">or drag and drop</span>
+                                                    <input id="file-upload" name="images" type="file" multiple accept="image/*" onChange={(e) => { addFiles(e.target.files); e.target.value = null; }} className="sr-only" />
+                                                </label>
+                                                <p className="mt-1 text-xs text-gray-500"> (max 5 images)</p>
+                                            </div>
+                                            {selectedFiles.length > 0 && (
+                                                <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-4">
+                                                    {selectedFiles.map((file, index) => (
+                                                        <div key={index} className="relative group">
+                                                            <img src={URL.createObjectURL(file)} alt={`Preview ${index + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                                                            <button type="button" onClick={() => setSelectedFiles(selectedFiles.filter((_, i) => i !== index))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>
-                                    </div>
-
-                                    <div className="flex gap-4">
-                                        <button
-                                            type="submit"
-                                            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-green-300 disabled:cursor-not-allowed"
-                                            disabled={isSubmitting}
-                                        >
-                                            {isSubmitting ? 'Saving...' : (editingProduct ? 'Update Product' : 'Add Product')}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={resetForm}
-                                            className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors disabled:bg-gray-300"
-                                            disabled={isSubmitting}
-                                        >
+                                    </form>
+                                    <div className="flex gap-4 p-6 border-t bg-gray-50 rounded-b-xl">
+                                        <button type="button" onClick={resetForm} className="w-full bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition-colors disabled:bg-gray-300" disabled={isSubmitting}>
                                             Cancel
                                         </button>
+                                        <button type="submit" form="add-product-form" className="w-full bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors disabled:bg-green-300 disabled:cursor-not-allowed" disabled={isSubmitting}>
+                                            {isSubmitting ? 'Saving...' : (editingProduct ? 'Update Product' : 'Add Product')}
+                                        </button>
                                     </div>
-                                </form>
+                                </div>
                             </div>
                         )}
 
                         {/* Products List */}
                         <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-200">
-                                <h2 className="text-xl font-semibold">Your Products ({products.length})</h2>
+                            <div className="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                                <h2 className="text-xl font-semibold">Your Products ({filteredProducts.length})</h2>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full sm:w-auto">
+                                    <div className="relative w-full sm:w-64">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                            placeholder="Search products..."
+                                            className="w-full py-2 pl-10 pr-4 text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50 shadow-inner"
+                                        />
+                                    </div>
+                                    <select
+                                        value={productSortBy}
+                                        onChange={(e) => setProductSortBy(e.target.value)}
+                                        className="w-full sm:w-auto py-2 pl-3 pr-8 text-gray-700 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50 shadow-inner"
+                                    >
+                                        <option value="dateDesc">Newest First</option>
+                                        <option value="dateAsc">Oldest First</option>
+                                        <option value="priceDesc">Price: High to Low</option>
+                                        <option value="priceAsc">Price: Low to High</option>
+                                        <option value="nameAsc">Name (A-Z)</option>
+                                        <option value="nameDesc">Name (Z-A)</option>
+                                    </select>
+                                </div>
                             </div>
 
                             {products.length === 0 ? (
@@ -569,85 +673,104 @@ const SellerDashboardPage = () => {
                                     </button>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead className="bg-gray-50">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Product
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Category
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Price
-                                                </th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Actions
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-gray-200">
-                                            {products.map((product) => (
-                                                <tr key={product._id} className="hover:bg-gray-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <div className="flex-shrink-0 h-12 w-12">
-                                                                {product.images && product.images.length > 0 ? (
-                                                                    <img
-                                                                        className="h-12 w-12 rounded-lg object-cover"
-                                                                        src={product.images[0].url}
-                                                                        alt={product.name}
-                                                                    />
-                                                                ) : (
-                                                                    <div className="h-12 w-12 rounded-lg bg-gray-200 flex items-center justify-center">
-                                                                        <Package className="w-6 h-6 text-gray-400" />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="ml-4">
-                                                                <div className="text-sm font-medium text-gray-900">
-                                                                    {product.name}
-                                                                </div>
-                                                                <div className="text-sm text-gray-500 truncate max-w-xs">
-                                                                    {product.description}
-                                                                </div>
-                                                            </div>
+                                paginatedProducts.length === 0 && searchTerm ? (
+                                    <div className="p-8 text-center text-gray-600">
+                                        No products match your search.
+                                    </div>
+                                ) : (
+                                    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    {paginatedProducts.map((product) => (
+                                        <div key={product._id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300 flex flex-col">
+                                            <div className="aspect-w-16 aspect-h-9">
+                                                {product.images && product.images.length > 0 ? (
+                                                    <img
+                                                        className="w-full h-40 object-cover"
+                                                        src={product.images[0].url}
+                                                        alt={product.name}
+                                    />
+                                                ) : (
+                                                    <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
+                                                        <Package className="w-10 h-10 text-gray-400" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="p-4 flex flex-col flex-grow">
+                                                <h3 className="text-lg font-semibold text-gray-900 truncate">{product.name}</h3>
+                                                <p className="text-sm text-gray-500 mb-2">{product.category}</p>
+                                                {product.tagline && <p className="text-sm text-gray-600 mb-1">{product.tagline.split(',').map(s => s.trim()).join(' | ')}</p>}
+                                                <p className="text-sm text-gray-600 line-clamp-2 flex-grow">{product.description}</p>
+                                                <div className="mt-4 flex justify-between items-center">
+                                                    {product.originalPrice && product.originalPrice > product.price ? (
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm text-gray-500 line-through">
+                                                                ${product.originalPrice}
+                                                            </span>
+                                                            <span className="text-xl font-bold text-green-600">
+                                                                ${product.price}
+                                                            </span>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className="text-sm text-gray-900">{product.category}</span>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className="text-sm font-medium text-gray-900">
+                                                    ) : (
+                                                        <span className="text-xl font-bold text-green-600">
                                                             ${product.price}
                                                         </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                        <button
-                                                            onClick={() => !deletingProductId && handleEdit(product)}
-                                                            className="text-indigo-600 hover:text-indigo-900 mr-4 flex items-center gap-1 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                                            disabled={!!deletingProductId}
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                            Edit
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(product._id)}
-                                                            className="text-red-600 hover:text-red-900 flex items-center gap-1 disabled:text-gray-400 disabled:cursor-not-allowed"
-                                                            disabled={!!deletingProductId}
-                                                        >
-                                                            {deletingProductId === product._id ? 'Deleting...' : (
-                                                                <>
-                                                                    <Trash2 className="w-4 h-4" /> Delete
-                                                                </>
-                                                            )}
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="px-4 py-3 bg-gray-50 border-t flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => !deletingProductId && handleEdit(product)}
+                                                    className="text-indigo-600 hover:text-indigo-900 text-sm font-medium flex items-center gap-1 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                    disabled={!!deletingProductId}
+                                                    title="Edit Product"
+                                                >
+                                                    <Edit className="w-4 h-4" />
+                                                    <span>Edit</span>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDelete(product._id)}
+                                                    className="text-red-600 hover:text-red-900 text-sm font-medium flex items-center gap-1 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                    disabled={!!deletingProductId}
+                                                    title="Delete Product"
+                                                >
+                                                    {deletingProductId === product._id ? (
+                                                        'Deleting...'
+                                                    ) : (
+                                                        <>
+                                                            <Trash2 className="w-4 h-4" />
+                                                            <span>Delete</span>
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                )
+                            )}
+                            {filteredProducts.length > productsPerPage && (
+                                <div className="px-6 py-4 border-t flex flex-col sm:flex-row justify-between items-center gap-4">
+                                    <div className="text-sm text-gray-600">
+                                        Showing <span className="font-semibold">{paginatedProducts.length}</span> of <span className="font-semibold">{filteredProducts.length}</span> products
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                        <button
+                                            onClick={() => handleProductPageChange(productsCurrentPage - 1)}
+                                            disabled={productsCurrentPage === 1}
+                                            className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md font-semibold hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Previous
+                                        </button>
+                                        <span className="text-gray-600 text-sm">
+                                            Page {productsCurrentPage} of {productsTotalPages}
+                                        </span>
+                                        <button
+                                            onClick={() => handleProductPageChange(productsCurrentPage + 1)}
+                                            disabled={productsCurrentPage === productsTotalPages}
+                                            className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md font-semibold hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            Next
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -656,8 +779,23 @@ const SellerDashboardPage = () => {
 
                 {activeTab === 'orders' && (
                     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                        <div className="px-6 py-4 border-b border-gray-200">
-                            <h2 className="text-xl font-semibold">Your Orders ({orders.length})</h2>
+                        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                            <h2 className="text-xl font-semibold">Your Orders ({totalOrders})</h2>
+                            <div className="flex items-center gap-2">
+                                <label htmlFor="sort-orders" className="text-sm font-medium text-gray-700">Sort by:</label>
+                                <select
+                                    id="sort-orders"
+                                    value={orderSortBy}
+                                    onChange={handleSortChange}
+                                    className="appearance-none bg-white border border-gray-300 text-gray-700 py-1 pl-2 pr-8 rounded-lg text-sm leading-tight focus:outline-none focus:bg-white focus:border-green-500"
+                                >
+                                    <option value="dateDesc">Newest First</option>
+                                    <option value="dateAsc">Oldest First</option>
+                                    <option value="totalDesc">Total: High to Low</option>
+                                    <option value="totalAsc">Total: Low to High</option>
+                                    <option value="statusPriority">Status Priority</option>
+                                </select>
+                            </div>
                         </div>
 
                         {orders.length === 0 ? (
@@ -677,6 +815,12 @@ const SellerDashboardPage = () => {
                                                 Customer
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Products
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Items
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Total
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -686,6 +830,9 @@ const SellerDashboardPage = () => {
                                                 Date
                                             </th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Est. Delivery
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Actions
                                             </th>
                                         </tr>
@@ -693,14 +840,27 @@ const SellerDashboardPage = () => {
                                     <tbody className="bg-white divide-y divide-gray-200">
                                         {orders.map((order) => (
                                             <tr key={order._id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="text-sm font-medium text-gray-900">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                    <a
+                                                        href={`/orders/${order._id}`} // Link to the order detail page
+                                                        className="text-green-600 hover:text-green-800 hover:underline"
+                                                    >
                                                         #{order._id.slice(-8)}
-                                                    </span>
+                                                    </a>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <span className="text-sm text-gray-900">
                                                         {order.user?.name || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="text-sm text-gray-900">
+                                                        {order.items?.map(item => item.product?.name).join(', ') || 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className="text-sm text-gray-900">
+                                                        {order.items?.length || 0}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -730,23 +890,12 @@ const SellerDashboardPage = () => {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                                     <button
-                                                        onClick={() => {/* Handle view order details */}}
-                                                        className="text-indigo-600 hover:text-indigo-900 mr-4 flex items-center gap-1"
-                                                    >
-                                                        <Eye className="w-4 h-4" />
-                                                        View
-                                                    </button>
-                                                    <button
                                                         onClick={() => !updatingOrderId && openStatusModal(order)}
-                                                        className="text-green-600 hover:text-green-700 flex items-center gap-1 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                        className="text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
                                                         disabled={!!updatingOrderId}
+                                                        title="Edit Status"
                                                     >
-                                                        {updatingOrderId === order._id ? 'Updating...' : (
-                                                            <>
-                                                                <CheckCircle className="w-4 h-4" />
-                                                                Update Status
-                                                            </>
-                                                        )}
+                                                        {updatingOrderId === order._id ? 'Updating...' : 'Edit Status'}
                                                     </button>
                                                 </td>
                                             </tr>
@@ -755,6 +904,34 @@ const SellerDashboardPage = () => {
                                 </table>
                             </div>
                         )}
+
+                        {orders.length > 0 && ordersTotalPages > 1 && (
+                            <div className="mt-6 px-6 py-4 flex justify-between items-center border-t">
+                                <span className="text-sm text-gray-600">
+                                    Showing {orders.length} of {totalOrders} orders
+                                </span>
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        onClick={() => handleOrderPageChange(ordersCurrentPage - 1)}
+                                        disabled={ordersCurrentPage === 1}
+                                        className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md font-semibold hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Previous
+                                    </button>
+                                    <span className="text-gray-600 text-sm">
+                                        Page {ordersCurrentPage} of {ordersTotalPages}
+                                    </span>
+                                    <button
+                                        onClick={() => handleOrderPageChange(ordersCurrentPage + 1)}
+                                        disabled={ordersCurrentPage === ordersTotalPages}
+                                        className="px-3 py-1 bg-gray-200 text-gray-700 rounded-md font-semibold hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                     </div>
                 )}
             </main>

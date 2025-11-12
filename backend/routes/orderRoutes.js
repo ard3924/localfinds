@@ -3,7 +3,8 @@ const router = express.Router();
 const Order = require('../models/orderModel');
 const Product = require('../models/productModel');
 const Invoice = require('../models/invoiceModel');
-const User = require('../models/userModel');
+// --- FIX: Destructure the import to get the User model ---
+const { User } = require('../models/userModel');
 const { protect } = require('../middleware/authMiddleware');
 const pdfGenerator = require('../utils/pdfGenerator');
 const { generateInvoiceForOrder } = require('./invoiceRoutes');
@@ -71,6 +72,26 @@ router.post('/', protect, async (req, res) => {
 
         await order.save();
 
+        // Track purchased categories for the user
+        const { User } = require('../models/userModel');
+        const user = await User.findById(req.user.id);
+        if (user) {
+            // Ensure purchasedCategories array exists
+            if (!user.purchasedCategories) user.purchasedCategories = [];
+            for (const item of orderItems) {
+                const product = await Product.findById(item.product);
+                if (product) {
+                    const categoryIndex = user.purchasedCategories.findIndex(cat => cat.category === product.category);
+                    if (categoryIndex > -1) {
+                        user.purchasedCategories[categoryIndex].count += item.quantity;
+                    } else {
+                        user.purchasedCategories.push({ category: product.category, count: item.quantity });
+                    }
+                }
+            }
+            await user.save();
+        }
+
         // Fetch populated order for invoice generation
         const populatedOrder = await Order.findById(order._id).populate('items.product', 'name images price seller');
 
@@ -101,14 +122,28 @@ router.post('/', protect, async (req, res) => {
  */
 router.get('/myorders', protect, async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const totalOrders = await Order.countDocuments({ user: req.user.id });
+
         const orders = await Order.find({ user: req.user.id })
             .populate('items.product', 'name images price category')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
 
         res.json({
             success: true,
             count: orders.length,
+            totalOrders,
             orders,
+            pagination: {
+                currentPage: page,
+                totalPages: Math.ceil(totalOrders / limit),
+                limit
+            }
         });
     } catch (error) {
         console.error(error);
@@ -123,25 +158,65 @@ router.get('/myorders', protect, async (req, res) => {
  */
 router.get('/seller', protect, async (req, res) => {
     try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        const sortBy = req.query.sortBy || 'dateDesc'; // Default sort
+
         // Check if user is a seller
         if (req.user.role !== 'seller') {
             return res.status(403).json({ message: 'Access denied. Sellers only.' });
         }
 
+        // Find product IDs for the current seller
+        const sellerProductIds = await Product.find({ seller: req.user.id }).distinct('_id');
+
+        const query = { 'items.product': { $in: sellerProductIds } };
+
+        const totalOrders = await Order.countDocuments(query);
+
+        // Define sort options
+        const sortOptions = {};
+        switch (sortBy) {
+            case 'dateAsc':
+                sortOptions.createdAt = 1;
+                break;
+            case 'statusAsc':
+                sortOptions.status = 1;
+                break;
+            case 'statusDesc':
+                sortOptions.status = -1;
+                break;
+            case 'totalAsc':
+                sortOptions.totalAmount = 1;
+                break;
+            case 'totalDesc':
+                sortOptions.totalAmount = -1;
+                break;
+            case 'dateDesc':
+            default:
+                sortOptions.createdAt = -1;
+                break;
+        }
+
         // Find orders where the seller is the seller of at least one product in the order
-        const orders = await Order.find({
-            'items.product': {
-                $in: await Product.find({ seller: req.user.id }).distinct('_id')
-            }
-        })
+        const orders = await Order.find(query)
             .populate('items.product', 'name images price category')
             .populate('user', 'name email')
-            .sort({ createdAt: -1 });
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(limit);
 
         res.json({
             success: true,
             count: orders.length,
+            totalOrders,
             orders,
+            pagination: {
+                currentPage: page,
+                totalPages: Math.ceil(totalOrders / limit),
+                limit
+            }
         });
     } catch (error) {
         console.error(error);
@@ -217,73 +292,23 @@ router.put('/:id/status', protect, async (req, res) => {
             note: note || `Order status updated to ${status}`
         });
 
+        // --- FIX: REPLACED DUPLICATED LOGIC WITH A CALL TO THE SHARED FUNCTION ---
         // Generate invoice when order is confirmed, shipped, or delivered
         if ((status === 'confirmed' || status === 'shipped' || status === 'delivered') && order.status !== status) {
             try {
                 // Check if invoice already exists
                 const existingInvoice = await Invoice.findOne({ order: req.params.id });
                 if (!existingInvoice) {
-                    // Get seller info (assuming all items are from the same seller for simplicity)
-                    const sellerId = order.items[0].product.seller;
-                    const seller = await User.findById(sellerId, 'name email');
-                    const user = await User.findById(order.user, 'name email');
-
-                    // Generate invoice number
-                    const invoiceNumber = `INV-${Date.now()}-${order._id.toString().slice(-6)}`;
-
-                    // Prepare invoice items
-                    const invoiceItems = order.items.map(item => ({
-                        product: item.product._id,
-                        name: item.product.name,
-                        quantity: item.quantity,
-                        price: item.price,
-                        total: item.price * item.quantity,
-                    }));
-
-                    // Calculate totals
-                    const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
-                    const tax = 0; // No tax for now
-                    const totalAmount = subtotal + tax;
-
-                    // Create invoice
-                    const invoice = new Invoice({
-                        order: order._id,
-                        invoiceNumber,
-                        user: order.user,
-                        seller: sellerId,
-                        items: invoiceItems,
-                        subtotal,
-                        tax,
-                        totalAmount,
-                        shippingAddress: order.shippingAddress,
-                        paymentMethod: order.paymentMethod,
-                        pdfPath: `invoices/invoice_${invoiceNumber}.pdf`,
-                    });
-
-                    console.log('Generating PDF for invoice:', invoiceNumber);
-
-                    // Generate PDF
-                    const pdfPath = await pdfGenerator.generateInvoice({
-                        invoice,
-                        order,
-                        user,
-                        seller,
-                    });
-
-                    console.log('PDF generated at:', pdfPath);
-
-                    invoice.pdfPath = pdfPath;
-                    await invoice.save();
-
-                    console.log('Invoice saved successfully:', invoiceNumber);
-                } else {
-                    console.log('Invoice already exists for order:', req.params.id);
+                    // 'order' is already populated with 'items.product' from above
+                    await generateInvoiceForOrder(order);
+                    console.log('Invoice generated successfully for order:', order._id);
                 }
             } catch (invoiceError) {
-                console.error('Error generating invoice:', invoiceError);
+                console.error('Error generating invoice on status update:', invoiceError);
                 // Don't fail the order update if invoice generation fails
             }
         }
+        // --- END OF FIX ---
 
         // Cancel invoice when order is cancelled
         if (status === 'cancelled' && order.status !== 'cancelled') {
@@ -331,7 +356,7 @@ router.delete('/:id', protect, async (req, res) => {
         const order = await Order.findById(req.params.id);
 
         if (!order) {
-            return res.status(404).json({ message: 'Order not found' });
+            return res.status(44).json({ message: 'Order not found' });
         }
 
         if (order.user.toString() !== req.user.id) {
