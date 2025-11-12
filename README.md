@@ -76,14 +76,7 @@ LocalFinds/
 │   ├── db/
 │   │   └── connection.js
 │   ├── invoices/
-│   │   ├── invoice_INV-1762579178138-0bddd7.pdf
-│   │   ├── invoice_INV-1762579682462-afb1e5.pdf
-│   │   ├── invoice_INV-1762579732837-c07b5d.pdf
-│   │   ├── invoice_INV-1762781569656-83681e.pdf
-│   │   ├── invoice_INV-1762868848854-a4db1f.pdf
-│   │   ├── invoice_INV-1762868896425-a4dc7f.pdf
-│   │   ├── invoice_INV-1762873086492-b71fa8.pdf
-│   │   └── invoice_INV-1762873109360-b7223c.pdf
+│   │   ├── generated invoices will be saved here 
 │   ├── middleware/
 │   │   ├── authMiddleware.js
 │   │   └── uploadMiddleware.js
