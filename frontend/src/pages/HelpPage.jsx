@@ -206,28 +206,6 @@ const HelpPage = () => {
             </div>
           </form>
         </section>
-
-        {/* Additional Resources */}
-        <section className="mt-16 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">Additional Resources</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Safety Guidelines</h3>
-              <p className="text-gray-600 mb-4">Learn about safe buying and selling practices on our platform.</p>
-              <a href="#" className="text-green-600 hover:text-green-700 font-medium">Read More →</a>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Seller Handbook</h3>
-              <p className="text-gray-600 mb-4">Tips and best practices for successful selling on LocalFinds.</p>
-              <a href="#" className="text-green-600 hover:text-green-700 font-medium">Read More →</a>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Community Forum</h3>
-              <p className="text-gray-600 mb-4">Connect with other users and share your experiences.</p>
-              <a href="#" className="text-green-600 hover:text-green-700 font-medium">Join Discussion →</a>
-            </div>
-          </div>
-        </section>
       </main>
 
       <Footer />

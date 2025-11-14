@@ -9,7 +9,7 @@ import { CheckCircle } from 'lucide-react';
 const ResetPasswordPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { resetToken } = location.state || {};
+    const { resetToken, purpose } = location.state || {};
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -20,8 +20,6 @@ const ResetPasswordPage = () => {
             navigate('/forgot-password');
         }
     }, [resetToken, purpose, navigate]);
-
-    const { purpose } = location.state || {};
 
     const handleSubmit = async (e) => {
         e.preventDefault();

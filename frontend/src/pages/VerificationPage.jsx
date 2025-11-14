@@ -20,13 +20,23 @@ const VerificationPage = () => {
 
   // Function to handle input change and move focus
   const handleChange = (e, index) => {
-    const { value } = e.target;
-    // Only allow single digit input
+    let { value } = e.target;
+    // Allow pasting multiple digits
     if (value.length > 1) {
-      e.target.value = value.charAt(0);
+      const digits = value.replace(/\D/g, '').slice(0, 6 - index);
+      for (let i = 0; i < digits.length; i++) {
+        if (index + i < inputRefs.current.length) {
+          inputRefs.current[index + i].value = digits[i];
+        }
+      }
+      const nextIndex = index + digits.length;
+      if (nextIndex < inputRefs.current.length) {
+        inputRefs.current[nextIndex].focus();
+      }
+      return;
     }
-
-    // Move to next input if a digit is entered and not the last input
+    // Single digit input
+    e.target.value = value.replace(/\D/g, '');
     if (e.target.value && index < inputRefs.current.length - 1) {
       inputRefs.current[index + 1].focus();
     }

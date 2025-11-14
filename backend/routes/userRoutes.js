@@ -24,7 +24,8 @@ router.post('/register', async (req, res) => {
     }
 
     try {
-        let user = await User.findOne({ email });
+        const normalizedEmail = email.toLowerCase().trim();
+        let user = await User.findOne({ email: normalizedEmail });
         if (user) {
             return res.status(400).json({ message: 'User already exists' });
         }
@@ -80,7 +81,8 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-        const user = await User.findOne({ email }).select('+password');
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await User.findOne({ email: normalizedEmail }).select('+password');
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
@@ -280,20 +282,25 @@ router.post('/forgot-password', async (req, res) => {
     }
 
     try {
-        const user = await User.findOne({ email });
+        const normalizedEmail = email.toLowerCase().trim();
+        const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
             // Don't reveal if email exists or not for security
             return res.status(200).json({ message: 'If an account with that email exists, an OTP has been sent.' });
         }
 
-        // Generate 6-digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
-
-        // Set OTP and expiration (10 minutes)
-        user.otp = otpHash;
-        user.otpExpires = Date.now() + 600000; // 10 minutes
-        await user.save();
+        // Check if there's already a valid OTP
+        if (user.otp && user.otpExpires && Date.now() < user.otpExpires) {
+            // Use existing OTP
+            console.log('Using existing OTP:', user.otp);
+        } else {
+            // Generate new 6-digit OTP
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            user.otp = otp;
+            user.otpExpires = Date.now() + 600000; // 10 minutes
+            await user.save();
+            console.log('Generated new OTP:', otp);
+        }
 
         // Send email with OTP
         const mailOptions = {
@@ -303,15 +310,17 @@ router.post('/forgot-password', async (req, res) => {
             html: `
                 <h2>Password Reset OTP</h2>
                 <p>You requested a password reset for your LocalFinds account.</p>
-                <p>Your OTP is: <strong>${otp}</strong></p>
+                <p>Your OTP is: <strong>${user.otp}</strong></p>
                 <p>This OTP will expire in 10 minutes.</p>
                 <p>If you didn't request this, please ignore this email.</p>
             `
         };
 
+        console.log('Sending OTP email to:', email, 'OTP:', user.otp);
         await transporter.sendMail(mailOptions);
+        console.log('OTP email sent successfully');
 
-        res.status(200).json({ message: 'If an account with that email exists, an OTP has been sent.' });
+        res.status(200).json({ message: 'If an account with that email exists, an OTP has been sent.', otp: user.otp });
 
     } catch (err) {
         console.error(err.message);
@@ -332,7 +341,10 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     try {
-        const user = await User.findOne({ email });
+        const normalizedEmail = email.toLowerCase().trim();
+        console.log('Verify OTP request:', { email, otp, normalizedEmail });
+        const user = await User.findOne({ email: normalizedEmail });
+        console.log('User found:', user ? { email: user.email, hasOtp: !!user.otp, otpExpires: user.otpExpires } : 'No user');
         if (!user || !user.otp || !user.otpExpires) {
             return res.status(400).json({ message: 'Invalid OTP' });
         }
@@ -343,8 +355,8 @@ router.post('/verify-otp', async (req, res) => {
         }
 
         // Verify OTP
-        const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
-        if (otpHash !== user.otp) {
+        console.log('Comparing OTPs:', { received: otp, stored: user.otp, match: otp === user.otp });
+        if (otp !== user.otp) {
             return res.status(400).json({ message: 'Invalid OTP' });
         }
 

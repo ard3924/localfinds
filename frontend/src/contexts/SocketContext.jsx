@@ -19,7 +19,7 @@ export const SocketProvider = ({ children }) => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const socketInstance = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:5200', {
+        const socketInstance = io({
             auth: {
                 token
             }

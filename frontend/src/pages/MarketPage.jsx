@@ -366,7 +366,7 @@ const MarketplacePage = () => {
             )}
 
             <ProductSection
-              title="Availabe Products"
+              title="Available Products"
               products={displayProducts}
               gridCols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
               showTwoRows={true}

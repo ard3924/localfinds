@@ -7,6 +7,10 @@ import { Cpu, MapPin, Search, Heart, Users, Gift } from 'lucide-react';
 import axiosInstance from '../axiosintreceptor.js';
 import ProductCard from '../components/ProductCard.jsx';
 import ProductCardSkeleton from '../components/ProductCardSkeleton.jsx';
+import landingBgImg from '../assets/landingherobgimg.avif';
+import supportCommunityImg from '../assets/supportyourcomunity.avif';
+import findTreasuresImg from '../assets/finduniquetreasures.avif';
+import sustainableImg from '../assets/sustainable.avif';
 
 // Reusable component for the "Why Shop Local" section with the 3D flip effect
 const FlippingInfoCard = ({ frontImage, frontTitle, backIcon, backTitle, backText }) => (
@@ -30,9 +34,9 @@ const FlippingInfoCard = ({ frontImage, frontTitle, backIcon, backTitle, backTex
 );
 
 const whyShopLocalData = [
-    { frontImage: 'https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?q=80&w=1974&auto=format&fit=crop', frontTitle: 'Support Your Community', backIcon: <Users className="w-12 h-12 mb-4" />, backTitle: 'Support Your Community', backText: 'Your purchases directly support local artisans and small business owners.' },
-    { frontImage: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?q=80&w=1974&auto=format&fit_crop', frontTitle: 'Find Unique Treasures', backIcon: <Gift className="w-12 h-12 mb-4" />, backTitle: 'Find Unique Treasures', backText: 'Discover one-of-a-kind, handcrafted items with a personal touch.' },
-    { frontImage: 'https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?q=80&w=2070&auto=format&fit_crop', frontTitle: 'Sustainable & Personal', backIcon: <Heart className="w-12 h-12 mb-4" />, backTitle: 'Sustainable & Personal', backText: 'Enjoy a more personal shopping experience and reduce your carbon footprint.' },
+    { frontImage: supportCommunityImg, frontTitle: 'Support Your Community', backIcon: <Users className="w-12 h-12 mb-4" />, backTitle: 'Support Your Community', backText: 'Your purchases directly support local artisans and small business owners.' },
+    { frontImage: findTreasuresImg, frontTitle: 'Find Unique Treasures', backIcon: <Gift className="w-12 h-12 mb-4" />, backTitle: 'Find Unique Treasures', backText: 'Discover one-of-a-kind, handcrafted items with a personal touch.' },
+    { frontImage: sustainableImg, frontTitle: 'Sustainable & Personal', backIcon: <Heart className="w-12 h-12 mb-4" />, backTitle: 'Sustainable & Personal', backText: 'Enjoy a more personal shopping experience and reduce your carbon footprint.' },
 ];
 
 // Main Landing Page Component
@@ -74,7 +78,7 @@ export default function LandingPage() {
                     {/* Background Image and Overlay */}
                     <div className="absolute inset-0 overflow-hidden">
                         <img
-                            src="https://images.unsplash.com/photo-1533900298318-6b8da08a523e?q=80&w=2070&auto=format&fit=crop"
+                            src={landingBgImg}
                             alt="A vibrant local market with unique goods"
                             className="w-full h-full object-cover"
                         />
