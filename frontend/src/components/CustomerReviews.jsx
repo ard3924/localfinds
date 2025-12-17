@@ -59,7 +59,7 @@ const CustomerReviews = ({ productId }) => {
                 setCurrentUser(response.data);
             }
         } catch (err) {
-            // User not logged in, that's okay
+            console.log(err)
         }
     };
 
