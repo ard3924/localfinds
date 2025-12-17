@@ -19,10 +19,13 @@ export const SocketProvider = ({ children }) => {
         const token = localStorage.getItem('token');
         if (!token) return;
 
-        const socketInstance = io({
+        const socketInstance = io("https://localfinds-backend-e2q7.onrender.com", {
             auth: {
                 token
-            }
+            },
+            // Optional: these transports often help with cross-domain connection stability
+            transports: ['websocket', 'polling'], 
+            withCredentials: true 
         });
 
         socketInstance.on('connect', () => {
