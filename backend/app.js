@@ -52,12 +52,14 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/inquiries', inquiryRoutes);
-//for production
-app.use(express.static(path.join(__dirname, 'build')));
+// //for production
+// app.use(express.static(path.join(__dirname, 'build')));
 
-// This makes sure that any non-API route serves the React app
-app.get(/.*/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+// // This makes sure that any non-API route serves the React app
+// app.get(/.*/, (req, res) => {
+//   res.sendFile(path.join(__dirname, 'build', 'index.html'));
+// });
+app.get('/', (req, res) => {
+  res.send('LocalFinds API is running...');
 });
-
 startServer();
