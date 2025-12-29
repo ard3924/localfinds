@@ -66,7 +66,6 @@ LocalFinds is a comprehensive e-commerce platform that connects local buyers and
 ```
 LocalFinds/
 ├── README.md
-├── TODO.md
 ├── backend/
 │   ├── .gitignore
 │   ├── app.js
