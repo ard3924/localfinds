@@ -71,6 +71,7 @@ const ProductCard = ({ product }) => {
             alt={product.name}
             className="aspect-[4/3] w-full object-cover cursor-pointer"
             onClick={() => window.location.href = `/product/${product._id}`}
+            loading="lazy"
           />
         ) : (
           <div className="aspect-[4/3] w-full bg-gray-200 flex items-center justify-center cursor-pointer" onClick={() => window.location.href = `/product/${product._id}`}>
@@ -89,15 +90,15 @@ const ProductCard = ({ product }) => {
         )}
       </div>
 
-      <div className="p-3 flex flex-col flex-grow">
+      <div className="p-4 sm:p-3 flex flex-col flex-grow">
         <div className="flex-grow">
-          <p className="text-sm font-medium text-gray-800 truncate cursor-pointer" onClick={() => window.location.href = `/product/${product._id}`}>{product.name}</p>
-          {product.tagline && <p className="text-xs text-gray-600 mb-1">{product.tagline.split(',').map(s => s.trim()).join(' | ')}</p>}
+          <p className="text-sm sm:text-sm font-medium text-gray-800 truncate cursor-pointer" onClick={() => window.location.href = `/product/${product._id}`}>{product.name}</p>
+          {product.tagline && <p className="text-xs text-gray-600 mb-1 hidden sm:block">{product.tagline.split(',').map(s => s.trim()).join(' | ')}</p>}
           {displayPrice()}
         </div>
         <button
           onClick={handleAddToCart}
-          className="w-full bg-green-500 text-white py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors text-sm"
+          className="w-full mobile-touch-target bg-green-500 text-white py-3 sm:py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors text-sm mt-2"
         >
           Add to Cart
         </button>

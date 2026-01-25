@@ -66,22 +66,22 @@ const Footer = () => {
     return (
         <>
             <footer className="bg-gray-100 text-gray-800 w-full border-t border-gray-200">
-                <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div className="max-w-7xl mx-auto py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
                         {/* About Section */}
-                        <div className="col-span-2 md:col-span-1">
-                            <h3 className="text-2xl font-bold text-green-600">LocalFinds</h3>
+                        <div className="col-span-1 sm:col-span-2 lg:col-span-1">
+                            <h3 className="text-xl sm:text-2xl font-bold text-green-600">LocalFinds</h3>
                             <p className="mt-2 text-gray-500 text-sm">Discover your neighborhood's hidden gems and support local sellers.</p>
                         </div>
 
                         {/* Dynamic Footer Sections */}
                         {footerSections.map((section) => (
                             <div key={section.title}>
-                                <h4 className="font-semibold text-gray-900">{section.title}</h4>
-                                <ul className="mt-4 space-y-2">
+                                <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{section.title}</h4>
+                                <ul className="mt-3 sm:mt-4 space-y-2">
                                     {section.links.map((link) => (
                                         <li key={link.text}>
-                                            <Link to={link.to} className="text-gray-500 hover:text-green-600 text-sm">{link.text}</Link>
+                                            <Link to={link.to} className="text-gray-500 hover:text-green-600 text-sm mobile-touch-target inline-block py-1">{link.text}</Link>
                                         </li>
                                     ))}
                                 </ul>
@@ -89,11 +89,11 @@ const Footer = () => {
                         ))}
                     </div>
 
-                    <div className="mt-8 border-t border-gray-200 pt-8 flex flex-col sm:flex-row justify-between items-center">
-                        <p className="text-gray-500 text-sm">&copy; {new Date().getFullYear()} LocalFinds. All rights reserved.</p>
-                        <div className="flex space-x-4 mt-4 sm:mt-0">
+                    <div className="mt-6 sm:mt-8 border-t border-gray-200 pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center">
+                        <p className="text-gray-500 text-xs sm:text-sm">&copy; {new Date().getFullYear()} LocalFinds. All rights reserved.</p>
+                        <div className="flex space-x-3 sm:space-x-4 mt-4 sm:mt-0">
                             {socialLinks.map((social) => (
-                                <a key={social.label} href={social.href} className="text-gray-400 hover:text-gray-600" aria-label={social.label}>{social.icon}</a>
+                                <a key={social.label} href={social.href} className="text-gray-400 hover:text-gray-600 mobile-touch-target p-2" aria-label={social.label}>{social.icon}</a>
                             ))}
                         </div>
                     </div>

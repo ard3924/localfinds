@@ -5,7 +5,7 @@ import Navbar from '../components/Navbar.jsx';
 import Footer from '../components/Footer.jsx';
 import axiosInstance from '../axiosintreceptor.js';
 import { useDebounce } from '../hooks/useDebounce.js';
-import { useCart } from '../components/CartContext.jsx';
+
 import { jwtDecode } from 'jwt-decode';
 
 // Categories will be set dynamically from products
@@ -106,6 +106,7 @@ const SortOptions = ({ sortBy, onSortChange }) => {
 };
 
 import ProductCard from '../components/ProductCard.jsx';
+import ProductCardSkeleton from '../components/ProductCardSkeleton.jsx';
 
 // ProductSection Component
 const ProductSection = ({ title, products, gridCols, showTwoRows = false, maxItems }) => {
@@ -153,7 +154,7 @@ const MarketplacePage = () => {
   const [categories, setCategories] = useState(['All']);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);
+
   const [hasNextPage, setHasNextPage] = useState(false);
   const [hasPrevPage, setHasPrevPage] = useState(false);
   const [recommendedProducts, setRecommendedProducts] = useState([]);
@@ -202,7 +203,7 @@ const MarketplacePage = () => {
         if (response.data.success) {
           setProducts(response.data.products);
           setTotalPages(response.data.pagination.totalPages);
-          setTotalProducts(response.data.pagination.totalProducts);
+
           setHasNextPage(response.data.pagination.hasNextPage);
           setHasPrevPage(response.data.pagination.hasPrevPage);
           // Extract unique categories from products (assuming all products are fetched initially)
@@ -285,13 +286,57 @@ const MarketplacePage = () => {
   // The main list of products to display, now sorted
   const displayProducts = sortedProducts;
 
-  if (loading) {
+  if (loading && products.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 font-sans flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-green-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading marketplace...</p>
-        </div>
+      <div className="min-h-screen bg-gray-50 font-sans flex flex-col">
+        <Navbar />
+
+        <main className="container mx-auto px-4 py-8 max-w-7xl pt-20 flex-grow">
+          {/* Search Bar Skeleton */}
+          <div className="my-8">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <div className="w-full py-3 pl-12 pr-4 bg-gray-200 rounded-lg animate-pulse"></div>
+            </div>
+          </div>
+
+          {/* Categories Skeleton */}
+          <section className="my-8">
+            <div className="h-6 bg-gray-200 rounded w-32 mb-4 animate-pulse"></div>
+            <div className="flex flex-wrap gap-2">
+              {[...Array(6)].map((_, index) => (
+                <div key={index} className="h-10 bg-gray-200 rounded-lg w-20 animate-pulse"></div>
+              ))}
+            </div>
+          </section>
+
+          {/* Recommended Products Skeleton */}
+          <section className="my-10">
+            <div className="h-8 bg-gray-200 rounded w-48 mb-5 animate-pulse"></div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, index) => (
+                <ProductCardSkeleton key={index} />
+              ))}
+            </div>
+          </section>
+
+          {/* Available Products Skeleton */}
+          <section className="my-10">
+            <div className="h-8 bg-gray-200 rounded w-48 mb-5 animate-pulse"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {[...Array(10)].map((_, index) => (
+                <ProductCardSkeleton key={index} />
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4">
+              {[...Array(10)].map((_, index) => (
+                <ProductCardSkeleton key={`second-${index}`} />
+              ))}
+            </div>
+          </section>
+        </main>
+
+        <Footer />
       </div>
     );
   }
@@ -368,7 +413,7 @@ const MarketplacePage = () => {
             <ProductSection
               title="Available Products"
               products={displayProducts}
-              gridCols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
+              gridCols="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
               showTwoRows={true}
             />
 

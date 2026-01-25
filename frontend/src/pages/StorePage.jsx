@@ -447,12 +447,12 @@ const StorePage = () => {
             <p className="text-gray-500">Try adjusting your search or filters.</p>
           </div>
         ) : (
-          <ProductSection
-            title={`${seller.name}'s Products`}
-            products={displayProducts}
-            gridCols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
-            showTwoRows={true}
-          />
+            <ProductSection
+              title={`${seller.name}'s Products`}
+              products={displayProducts}
+              gridCols="grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+              showTwoRows={true}
+            />
         )}
       </main>
 

@@ -133,23 +133,31 @@ const Navbar = () => {
                     <div className="md:hidden">
                         <button
                             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                            className="text-gray-600 hover:text-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            className="mobile-touch-target text-gray-600 hover:text-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 p-2 rounded-md transition-colors duration-200"
                             aria-expanded={isMobileMenuOpen}
                             aria-controls="mobile-menu"
                             aria-label={isMobileMenuOpen ? 'Close main menu' : 'Open main menu'}
                         >
-                            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                            <div className="relative w-6 h-6">
+                                <span className={`absolute inset-0 transition-all duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-0' : '-translate-y-1'}`}>
+                                    <span className={`block h-0.5 w-6 bg-current transition-all duration-300 ${isMobileMenuOpen ? 'rotate-90' : ''}`}></span>
+                                </span>
+                                <span className={`absolute inset-0 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0' : 'opacity-100'}`}>
+                                    <span className="block h-0.5 w-6 bg-current absolute top-2"></span>
+                                    <span className="block h-0.5 w-6 bg-current absolute bottom-2"></span>
+                                </span>
+                            </div>
                         </button>
                     </div>
                 </div>
 
                 {/* Mobile menu */}
                 {isMobileMenuOpen && (
-                    <div className="md:hidden bg-white border-t border-gray-200 shadow-lg" id="mobile-menu" role="menu">
-                        <div className="px-2 pt-2 pb-3 space-y-1">
+                    <div className="md:hidden bg-white border-t border-gray-200 shadow-lg max-h-[calc(100vh-4rem)] overflow-y-auto" id="mobile-menu" role="menu">
+                        <div className="px-4 pt-4 pb-3 space-y-2">
                             <Link
                                 to="/marketplace"
-                                className={`block px-3 py-2 text-base font-medium hover:bg-gray-50 ${location.pathname === '/marketplace' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}
+                                className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/marketplace' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                 aria-current={location.pathname === '/marketplace' ? 'page' : undefined}
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
@@ -158,7 +166,7 @@ const Navbar = () => {
                             {isLoggedIn && (
                                 <Link
                                     to="/chat"
-                                    className={`block px-3 py-2 text-base font-medium hover:bg-gray-50 ${location.pathname === '/chat' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}
+                                    className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/chat' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                     aria-current={location.pathname === '/chat' ? 'page' : undefined}
                                     onClick={() => setIsMobileMenuOpen(false)}
                                 >
@@ -167,7 +175,7 @@ const Navbar = () => {
                             )}
                             <Link
                                 to="/help"
-                                className={`block px-3 py-2 text-base font-medium hover:bg-gray-50 ${location.pathname === '/help' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}
+                                className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/help' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                 aria-current={location.pathname === '/help' ? 'page' : undefined}
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
@@ -176,29 +184,29 @@ const Navbar = () => {
                             {isLoggedIn && userRole !== 'seller' && (
                                 <Link
                                     to="/cart"
-                                    className={`flex items-center px-3 py-2 text-base font-medium hover:bg-gray-50 ${location.pathname === '/cart' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}
+                                    className={`flex items-center mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/cart' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                     aria-label={`View your shopping cart, ${cartItems.length} items`}
                                     aria-current={location.pathname === '/cart' ? 'page' : undefined}
                                     onClick={() => setIsMobileMenuOpen(false)}
                                 >
-                                    <ShoppingCart className="w-5 h-5 mr-2" />
-                                    Cart
+                                    <ShoppingCart className="w-5 h-5 mr-3" />
+                                    <span>Cart</span>
                                     {cartItems.length > 0 && (
-                                        <span className="ml-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                                        <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">
                                             {cartItems.length}
                                         </span>
                                     )}
                                 </Link>
                             )}
                         </div>
-                        <div className="pt-4 pb-3 border-t border-gray-200">
-                            <div className="px-2 space-y-1">
+                        <div className="pt-4 pb-4 border-t border-gray-200">
+                            <div className="px-4 space-y-2">
                                 {isLoggedIn ? (
                                     <>
                                         {userRole === 'admin' && (
                                             <Link
                                                 to="/admin"
-                                                className={`block px-3 py-2 text-base font-medium hover:bg-gray-50 ${location.pathname === '/admin' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}
+                                                className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/admin' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                                 onClick={() => setIsMobileMenuOpen(false)}
                                             >
                                                 Admin
@@ -207,7 +215,7 @@ const Navbar = () => {
                                         {userRole === 'seller' && (
                                             <Link
                                                 to="/seller-dashboard"
-                                                className={`block px-3 py-2 text-base font-medium hover:bg-gray-50 ${location.pathname === '/seller-dashboard' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}
+                                                className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/seller-dashboard' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                                 onClick={() => setIsMobileMenuOpen(false)}
                                             >
                                                 Dashboard
@@ -215,7 +223,7 @@ const Navbar = () => {
                                         )}
                                         <Link
                                             to="/account"
-                                            className={`block px-3 py-2 text-base font-medium hover:bg-gray-50 ${location.pathname === '/account' ? 'text-green-600' : 'text-gray-600 hover:text-green-600'}`}
+                                            className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/account' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                             onClick={() => setIsMobileMenuOpen(false)}
                                         >
                                             Account
@@ -225,28 +233,28 @@ const Navbar = () => {
                                                 handleLogout();
                                                 setIsMobileMenuOpen(false);
                                             }}
-                                            className="block w-full text-left px-3 py-2 text-base font-medium text-gray-600 hover:text-green-600 hover:bg-gray-50"
+                                            className="block w-full text-left mobile-touch-target px-4 py-3 text-base font-medium text-gray-600 hover:text-green-600 hover:bg-gray-50 rounded-lg transition-colors"
                                         >
                                             Logout
                                         </button>
                                     </>
                                 ) : (
-                                    <>
+                                    <div className="space-y-3">
                                         <Link
                                             to="/signin"
-                                            className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-green-600 hover:bg-gray-50"
+                                            className="block mobile-touch-target px-4 py-3 text-base font-medium text-gray-600 hover:text-green-600 hover:bg-gray-50 rounded-lg transition-colors"
                                             onClick={() => setIsMobileMenuOpen(false)}
                                         >
                                             Sign In
                                         </Link>
                                         <Link
                                             to="/signup"
-                                            className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-green-600 hover:bg-gray-50"
+                                            className="block mobile-touch-target px-4 py-3 text-base font-medium bg-green-500 text-white hover:bg-green-600 rounded-lg transition-colors text-center"
                                             onClick={() => setIsMobileMenuOpen(false)}
                                         >
                                             Sign Up
                                         </Link>
-                                    </>
+                                    </div>
                                 )}
                             </div>
                         </div>

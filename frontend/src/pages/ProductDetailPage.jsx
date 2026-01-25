@@ -334,11 +334,11 @@ const ProductDetailPage = () => {
         </div>
 
         {/* Product Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
           {/* Product Image */}
-          <div className="bg-orange-50 p-8 rounded-lg flex justify-center items-center">
+          <div className="bg-orange-50 p-4 sm:p-8 rounded-lg flex justify-center items-center order-2 lg:order-1">
             {selectedImage ? (
-              <div className="space-y-4">
+              <div className="space-y-4 w-full">
                 <div className="relative overflow-hidden rounded-lg">
                   {isImageLoading && (
                     <div className="absolute inset-0 bg-gray-200 animate-pulse"></div>
@@ -346,37 +346,39 @@ const ProductDetailPage = () => {
                   <img
                     src={selectedImage}
                     alt={product.name}
-                    className={`max-h-96 w-full object-contain rounded-lg transition-all duration-300 ease-in-out hover:scale-110 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
+                    className={`max-h-80 sm:max-h-96 w-full object-contain rounded-lg transition-all duration-300 ease-in-out hover:scale-110 ${isImageLoading ? 'opacity-0' : 'opacity-100'}`}
                     onLoad={() => setIsImageLoading(false)}
+                    loading="lazy"
                   />
                 </div>
                 {/* Thumbnail Images */}
                 {Array.isArray(product.images) && product.images.length > 1 && (
-                  <div className="flex space-x-2 overflow-x-auto">
+                  <div className="flex space-x-2 overflow-x-auto pb-2">
                     {product.images.map((image, index) => (
                       <img
                         key={index}
                         src={image.url}
                         alt={`${product.name} ${index + 1}`}
-                        className={`w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-all ${selectedImage === image.url ? 'ring-2 ring-green-500' : 'border border-transparent'}`}
+                        className={`w-16 h-16 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-all flex-shrink-0 ${selectedImage === image.url ? 'ring-2 ring-green-500' : 'border border-transparent'}`}
                         onClick={() => setSelectedImage(image.url)}
+                        loading="lazy"
                       />
                     ))}
                   </div>
                 )}
               </div>
             ) : (
-              <div className="max-h-96 w-full bg-gray-200 flex items-center justify-center rounded-lg">
+              <div className="max-h-80 sm:max-h-96 w-full bg-gray-200 flex items-center justify-center rounded-lg">
                 <span className="text-xl font-bold text-gray-400">No Image</span>
               </div>
             )}
           </div>
 
           {/* Product Details */}
-          <div>
-            <h2 className="text-4xl font-bold text-gray-800 mb-2">{product.name}</h2>
-            {product.tagline && <p className="text-lg text-gray-600 mb-2">{product.tagline.split(',').map(s => s.trim()).join(' | ')}</p>}
-            <div className="flex items-center space-x-4 mb-4">
+          <div className="order-1 lg:order-2">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 mb-2">{product.name}</h2>
+            {product.tagline && <p className="text-base sm:text-lg text-gray-600 mb-2">{product.tagline.split(',').map(s => s.trim()).join(' | ')}</p>}
+            <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mb-4">
               <div className="flex items-center">
                 {[...Array(5)].map((_, i) => ( // Use real data if available
                   <Star key={i} className={`w-5 h-5 ${i < Math.floor(product.averageRating || 0) ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
@@ -385,12 +387,12 @@ const ProductDetailPage = () => {
                   ({product.reviewCount || 0} reviews)
                 </a>
               </div>
-              <span className="text-gray-400">|</span>
+              <span className="hidden sm:block text-gray-400">|</span>
               {stockStatus()}
             </div>
 
             <div className="mb-6 border-b pb-6">
-              <p className="text-gray-600 mb-4">{product.description}</p>
+              <p className="text-gray-600 mb-4 text-sm sm:text-base">{product.description}</p>
               {product.originalPrice && product.originalPrice > product.price && (
                 <div className="flex items-center space-x-2 mb-2">
                   <span className="text-lg text-gray-500 line-through">
@@ -401,7 +403,7 @@ const ProductDetailPage = () => {
                   </span>
                 </div>
               )}
-              <div className="text-5xl font-extrabold text-gray-900">${product.price.toFixed(2)}</div>
+              <div className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900">${product.price.toFixed(2)}</div>
             </div>
 
             <div className="bg-gray-100 rounded-lg p-4 mb-6">
@@ -415,25 +417,25 @@ const ProductDetailPage = () => {
                     <p className="text-xs text-gray-500">Active seller</p>
                   </div>
                 </div>
-                <button onClick={() => navigate('/store/' + product.seller?._id)} className="text-sm text-green-600 font-semibold hover:underline">View Store</button>
+                <button onClick={() => navigate('/store/' + product.seller?._id)} className="text-sm text-green-600 font-semibold hover:underline mobile-touch-target">View Store</button>
               </div>
             </div>
 
             {/* Quantity Selector */}
-            <div className="flex items-center space-x-4 mb-8">
+            <div className="flex items-center space-x-4 mb-6">
               <p className="text-sm font-medium text-gray-700">Quantity:</p>
               <div className="flex items-center border border-gray-300 rounded-lg">
                 <button
                   onClick={() => handleQuantityChange(-1)}
-                  className="px-3 py-1 text-lg font-semibold text-gray-600 hover:bg-gray-100 rounded-l-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mobile-touch-target px-4 py-2 text-lg font-semibold text-gray-600 hover:bg-gray-100 rounded-l-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={quantity <= 1}
                 >
                   -
                 </button>
-                <span className="px-4 py-1 text-lg font-semibold text-gray-800">{quantity}</span>
+                <span className="px-4 py-2 text-lg font-semibold text-gray-800 min-w-[3rem] text-center">{quantity}</span>
                 <button
                   onClick={() => handleQuantityChange(1)}
-                  className="px-3 py-1 text-lg font-semibold text-gray-600 hover:bg-gray-100 rounded-r-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mobile-touch-target px-4 py-2 text-lg font-semibold text-gray-600 hover:bg-gray-100 rounded-r-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={product && quantity >= product.stock}
                 >
                   +
@@ -441,35 +443,37 @@ const ProductDetailPage = () => {
               </div>
             </div>
 
-            <div className="flex items-center space-x-4 mb-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4">
               <button
                 onClick={handleAddToCart}
                 disabled={product.stock === 0}
-                className="flex-1 bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="flex-1 mobile-touch-target bg-green-500 text-white py-4 sm:py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-base"
               >
                 {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
               </button>
-              <button
-                onClick={handleAddToWishlist}
-                className={`p-3 border border-gray-300 rounded-lg transition-colors ${product && isInWishlist(product._id) ? 'text-red-500 bg-red-50' : 'text-gray-600 hover:bg-gray-100 hover:text-red-500'}`}
-                aria-label="Add to wishlist"
-              >
-                <Heart className={`w-6 h-6 ${product && isInWishlist(product._id) ? 'fill-current' : ''}`} />
-              </button>
-              <button
-                onClick={() => setShowReportModal(true)}
-                className="px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center space-x-1"
-              >
-                <Flag className="w-4 h-4" />
-                <span>Report</span>
-              </button>
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleAddToWishlist}
+                  className={`mobile-touch-target p-4 sm:p-3 border border-gray-300 rounded-lg transition-colors ${product && isInWishlist(product._id) ? 'text-red-500 bg-red-50' : 'text-gray-600 hover:bg-gray-100 hover:text-red-500'}`}
+                  aria-label="Add to wishlist"
+                >
+                  <Heart className={`w-6 h-6 ${product && isInWishlist(product._id) ? 'fill-current' : ''}`} />
+                </button>
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="mobile-touch-target px-4 sm:px-3 py-4 sm:py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex items-center space-x-1"
+                >
+                  <Flag className="w-4 h-4" />
+                  <span className="hidden sm:inline">Report</span>
+                </button>
+              </div>
             </div>
 
             {/* Contact Seller Button */}
             {currentUser?._id !== product.seller?._id && (
               <button
                 onClick={handleContactSeller}
-                className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
+                className="w-full mobile-touch-target bg-blue-500 text-white py-4 sm:py-3 rounded-lg font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2 text-base"
               >
                 <MessageCircle className="w-5 h-5" />
                 <span>Contact Seller</span>

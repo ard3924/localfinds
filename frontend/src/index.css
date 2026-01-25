@@ -1,1 +1,79 @@
 @import "tailwindcss";
+
+/* Global Mobile Optimizations */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+  }
+
+  /* Touch-friendly button sizes */
+  button, .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Improve tap targets */
+  a, button, input, select, textarea {
+    touch-action: manipulation;
+  }
+
+  /* Better focus states for mobile */
+  button:focus, input:focus, select:focus, textarea:focus {
+    outline: 2px solid #16a34a;
+    outline-offset: 2px;
+  }
+
+  /* Mobile viewport optimizations */
+  @media (max-width: 768px) {
+    .container {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+
+    /* Reduce motion for mobile performance */
+    *, *::before, *::after {
+      animation-duration: 0.2s !important;
+      animation-delay: 0s !important;
+      transition-duration: 0.2s !important;
+    }
+  }
+
+  /* Hide scrollbar on mobile but keep functionality */
+  @media (max-width: 768px) {
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    * {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  }
+}
+
+/* Mobile-specific utilities */
+@layer utilities {
+  .mobile-safe-area {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .mobile-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .mobile-text-scale {
+    font-size: clamp(0.875rem, 2.5vw, 1rem);
+  }
+
+  .mobile-heading-scale {
+    font-size: clamp(1.5rem, 5vw, 2.25rem);
+  }
+}

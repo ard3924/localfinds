@@ -232,15 +232,15 @@ const CartPage = () => {
                     <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full mx-4">
                         <h3 className="text-2xl font-bold mb-6">Checkout</h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2">
+                        <div className="grid grid-cols-1 gap-4">
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Full Name
                                 </label>
                                 <input
                                     type="text"
                                     value={userProfile?.name || ''}
-                                    className="w-full px-3 py-2 border border-gray-200 bg-gray-100 text-gray-500 rounded-lg"
+                                    className="w-full px-4 py-3 border border-gray-200 bg-gray-100 text-gray-500 rounded-lg text-base"
                                     readOnly
                                 />
                             </div>
@@ -253,8 +253,9 @@ const CartPage = () => {
                                     type="email"
                                     value={checkoutData.email}
                                     onChange={(e) => setCheckoutData(prev => ({ ...prev, email: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-base"
                                     placeholder="Enter your email"
+                                    inputMode="email"
                                     required
                                 />
                             </div>
@@ -267,62 +268,66 @@ const CartPage = () => {
                                     type="tel"
                                     value={checkoutData.phone}
                                     onChange={(e) => setCheckoutData(prev => ({ ...prev, phone: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-base"
                                     placeholder="Enter your phone number"
+                                    inputMode="tel"
                                     required
                                 />
                             </div>
 
-                            <div className="md:col-span-2">
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Shipping Address *
                                 </label>
                                 <textarea
                                     value={checkoutData.shippingAddress}
                                     onChange={(e) => setCheckoutData(prev => ({ ...prev, shippingAddress: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-base resize-none"
                                     rows="3"
                                     placeholder="Enter your full shipping address"
                                     required
                                 />
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    PIN Code *
-                                </label>
-                                <input
-                                    type="text"
-                                    value={checkoutData.pin}
-                                    onChange={(e) => setCheckoutData(prev => ({ ...prev, pin: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    placeholder="Enter PIN code"
-                                    required
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        PIN Code *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={checkoutData.pin}
+                                        onChange={(e) => setCheckoutData(prev => ({ ...prev, pin: e.target.value }))}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-base"
+                                        placeholder="Enter PIN code"
+                                        inputMode="numeric"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Payment Method
+                                    </label>
+                                    <select
+                                        value={checkoutData.paymentMethod}
+                                        onChange={(e) => setCheckoutData(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-base bg-white"
+                                    >
+                                        <option value="cash_on_delivery">Cash on Delivery</option>
+                                        <option value="online_payment">Online Payment</option>
+                                    </select>
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Payment Method
-                                </label>
-                                <select
-                                    value={checkoutData.paymentMethod}
-                                    onChange={(e) => setCheckoutData(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                >
-                                    <option value="cash_on_delivery">Cash on Delivery</option>
-                                    <option value="online_payment">Online Payment</option>
-                                </select>
-                            </div>
-
-                            <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Order Notes (Optional)
                                 </label>
                                 <textarea
                                     value={checkoutData.orderNotes}
                                     onChange={(e) => setCheckoutData(prev => ({ ...prev, orderNotes: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-base resize-none"
                                     rows="2"
                                     placeholder="Any special instructions..."
                                 />
