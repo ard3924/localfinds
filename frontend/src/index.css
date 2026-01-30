@@ -76,4 +76,52 @@
   .mobile-heading-scale {
     font-size: clamp(1.5rem, 5vw, 2.25rem);
   }
+
+  /* Enhanced mobile typography */
+  .mobile-body-text {
+    font-size: clamp(0.875rem, 2vw, 1rem);
+    line-height: 1.5;
+  }
+
+  .mobile-small-text {
+    font-size: clamp(0.75rem, 1.8vw, 0.875rem);
+    line-height: 1.4;
+  }
+
+  /* Mobile spacing utilities */
+  .mobile-padding {
+    padding: clamp(0.5rem, 2vw, 1rem);
+  }
+
+  .mobile-margin {
+    margin: clamp(0.5rem, 2vw, 1rem);
+  }
+
+  /* Mobile grid adjustments */
+  .mobile-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+
+  /* Mobile form elements */
+  .mobile-input {
+    padding: clamp(0.75rem, 2vw, 1rem);
+    font-size: clamp(0.875rem, 2vw, 1rem);
+  }
+
+  .mobile-button {
+    padding: clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 1.5rem);
+    font-size: clamp(0.875rem, 2vw, 1rem);
+  }
+
+  /* Mobile card layouts */
+  .mobile-card {
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border-radius: clamp(0.5rem, 2vw, 0.75rem);
+  }
+
+  /* Mobile navigation */
+  .mobile-nav-item {
+    padding: clamp(0.75rem, 2vw, 1rem);
+    font-size: clamp(0.875rem, 2vw, 1rem);
+  }
 }

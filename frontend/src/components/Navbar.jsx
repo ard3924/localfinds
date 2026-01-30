@@ -157,7 +157,7 @@ const Navbar = () => {
                         <div className="px-4 pt-4 pb-3 space-y-2">
                             <Link
                                 to="/marketplace"
-                                className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/marketplace' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
+                                className={`block mobile-nav-item rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/marketplace' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                 aria-current={location.pathname === '/marketplace' ? 'page' : undefined}
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
@@ -166,7 +166,7 @@ const Navbar = () => {
                             {isLoggedIn && (
                                 <Link
                                     to="/chat"
-                                    className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/chat' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
+                                    className={`block mobile-nav-item rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/chat' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                     aria-current={location.pathname === '/chat' ? 'page' : undefined}
                                     onClick={() => setIsMobileMenuOpen(false)}
                                 >
@@ -175,7 +175,7 @@ const Navbar = () => {
                             )}
                             <Link
                                 to="/help"
-                                className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/help' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
+                                className={`block mobile-nav-item rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/help' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                 aria-current={location.pathname === '/help' ? 'page' : undefined}
                                 onClick={() => setIsMobileMenuOpen(false)}
                             >
@@ -184,7 +184,7 @@ const Navbar = () => {
                             {isLoggedIn && userRole !== 'seller' && (
                                 <Link
                                     to="/cart"
-                                    className={`flex items-center mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/cart' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
+                                    className={`flex items-center mobile-nav-item rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/cart' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                     aria-label={`View your shopping cart, ${cartItems.length} items`}
                                     aria-current={location.pathname === '/cart' ? 'page' : undefined}
                                     onClick={() => setIsMobileMenuOpen(false)}
@@ -206,7 +206,7 @@ const Navbar = () => {
                                         {userRole === 'admin' && (
                                             <Link
                                                 to="/admin"
-                                                className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/admin' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
+                                                className={`block mobile-nav-item rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/admin' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                                 onClick={() => setIsMobileMenuOpen(false)}
                                             >
                                                 Admin
@@ -215,7 +215,7 @@ const Navbar = () => {
                                         {userRole === 'seller' && (
                                             <Link
                                                 to="/seller-dashboard"
-                                                className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/seller-dashboard' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
+                                                className={`block mobile-nav-item rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/seller-dashboard' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                                 onClick={() => setIsMobileMenuOpen(false)}
                                             >
                                                 Dashboard
@@ -223,7 +223,7 @@ const Navbar = () => {
                                         )}
                                         <Link
                                             to="/account"
-                                            className={`block mobile-touch-target px-4 py-3 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/account' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
+                                            className={`block mobile-nav-item rounded-lg hover:bg-gray-50 transition-colors ${location.pathname === '/account' ? 'text-green-600 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
                                             onClick={() => setIsMobileMenuOpen(false)}
                                         >
                                             Account
@@ -233,7 +233,7 @@ const Navbar = () => {
                                                 handleLogout();
                                                 setIsMobileMenuOpen(false);
                                             }}
-                                            className="block w-full text-left mobile-touch-target px-4 py-3 text-base font-medium text-gray-600 hover:text-green-600 hover:bg-gray-50 rounded-lg transition-colors"
+                                            className="block w-full text-left mobile-nav-item text-gray-600 hover:text-green-600 hover:bg-gray-50 rounded-lg transition-colors"
                                         >
                                             Logout
                                         </button>
@@ -242,14 +242,14 @@ const Navbar = () => {
                                     <div className="space-y-3">
                                         <Link
                                             to="/signin"
-                                            className="block mobile-touch-target px-4 py-3 text-base font-medium text-gray-600 hover:text-green-600 hover:bg-gray-50 rounded-lg transition-colors"
+                                            className="block mobile-nav-item text-gray-600 hover:text-green-600 hover:bg-gray-50 rounded-lg transition-colors"
                                             onClick={() => setIsMobileMenuOpen(false)}
                                         >
                                             Sign In
                                         </Link>
                                         <Link
                                             to="/signup"
-                                            className="block mobile-touch-target px-4 py-3 text-base font-medium bg-green-500 text-white hover:bg-green-600 rounded-lg transition-colors text-center"
+                                            className="block mobile-nav-item bg-green-500 text-white hover:bg-green-600 rounded-lg transition-colors text-center"
                                             onClick={() => setIsMobileMenuOpen(false)}
                                         >
                                             Sign Up
